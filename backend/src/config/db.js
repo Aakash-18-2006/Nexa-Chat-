@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
  * Connect to MongoDB Atlas (Production) or Local MongoDB (Development)
  * Uses MONGODB_URI environment variable with fail-fast validation in production.
  */
-const connectDB = async () => {
+const connectDB = async (retries = 5, delayMs = 2500) => {
   const mongoUri =
     process.env.MONGODB_URI ||
     process.env.MONGO_URI ||
@@ -40,23 +40,43 @@ const connectDB = async () => {
     });
   }
 
-  try {
-    const conn = await mongoose.connect(connectionUri, {
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-      maxPoolSize: 25
-    });
+  const mongooseOpts = {
+    serverSelectionTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+    maxPoolSize: 10
+  };
 
-    const isAtlas = connectionUri.includes('mongodb+srv') || connectionUri.includes('mongodb.net');
-    console.log(`[MongoDB] Successfully connected to ${isAtlas ? 'MongoDB Atlas' : 'database'} host: ${conn.connection.host}`);
-    return conn;
-  } catch (error) {
-    console.error(`[MongoDB Error] Connection failed: ${error.message}`);
-    if (isProduction) {
-      console.error('[MongoDB Fatal] Production backend cannot operate without a database connection.');
-      process.exit(1);
+  const isAtlas = connectionUri.includes('mongodb+srv') || connectionUri.includes('mongodb.net');
+
+  if (isAtlas) {
+    if (
+      process.env.MONGODB_TLS_INSECURE === 'true' ||
+      process.env.NODE_ENV !== 'production' ||
+      process.platform === 'win32'
+    ) {
+      mongooseOpts.tlsInsecure = true;
     }
-    console.warn('[MongoDB Warning] Operating in development mode with pending/failed DB connection.');
+  }
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const conn = await mongoose.connect(connectionUri, mongooseOpts);
+
+      console.log(`[MongoDB] Successfully connected to ${isAtlas ? 'MongoDB Atlas' : 'database'} host: ${conn.connection.host}`);
+      return conn;
+    } catch (error) {
+      console.error(`[MongoDB Connection Attempt ${attempt}/${retries} Failed]: ${error.message}`);
+      if (attempt < retries) {
+        console.log(`[MongoDB] Retrying connection in ${delayMs / 1000}s...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      } else {
+        if (isProduction) {
+          console.error('[MongoDB Fatal] Production backend cannot operate without a database connection.');
+          process.exit(1);
+        }
+        console.warn('[MongoDB Warning] Operating in development mode with pending/failed DB connection.');
+      }
+    }
   }
 };
 

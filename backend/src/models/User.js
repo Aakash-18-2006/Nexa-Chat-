@@ -249,9 +249,7 @@ userSchema.methods.toSafeObject = function () {
   return obj;
 };
 
-// Indexing for rapid username/email/name search & strict uniqueness enforcement
-userSchema.index({ username: 1 }, { unique: true });
-userSchema.index({ email: 1 }, { unique: true });
+// Indexing for rapid search & sorting
 userSchema.index({ username: 1, email: 1 });
 userSchema.index({ name: 'text', username: 'text' });
 

@@ -12,14 +12,15 @@ const GENUINE_PROTECTED_USERS = [
   'aakash_18_'
 ];
 
+const connectDB = require('../config/db');
+
 async function cleanDemoAccounts() {
   console.log('========================================================');
   console.log('   NEXA Database Demo & Test Account Cleanup Utility    ');
   console.log('========================================================');
 
-  const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/nexa';
-  console.log('[Cleanup] Connecting to MongoDB at:', mongoUri);
-  await mongoose.connect(mongoUri);
+  console.log('[Cleanup] Connecting to database...');
+  await connectDB();
 
   // 1. Identify all demo/test accounts
   const demoUsers = await User.find({
