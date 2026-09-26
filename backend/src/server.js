@@ -6,6 +6,7 @@ const morgan = require('morgan');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const { Server } = require('socket.io');
+const mongoose = require('mongoose');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const connectDB = require('./config/db');
@@ -37,9 +38,21 @@ const app = express();
 const server = http.createServer(app);
 
 // Configure dynamic CORS for development and production
-const allowedOrigins = process.env.CLIENT_URL
-  ? process.env.CLIENT_URL.split(',').map((url) => url.trim().replace(/\/$/, ''))
-  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+const configuredUrls = [
+  ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : []),
+  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : [])
+].map((url) => url.trim().replace(/\/$/, '')).filter(Boolean);
+
+const defaultOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000'
+];
+
+const allowedOrigins = configuredUrls.length > 0
+  ? Array.from(new Set([...configuredUrls, ...defaultOrigins]))
+  : defaultOrigins;
 
 const corsOriginCheck = (origin, callback) => {
   // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
@@ -56,8 +69,7 @@ const corsOriginCheck = (origin, callback) => {
   ) {
     return callback(null, true);
   }
-  // In production, fallback to allowing origin with warning instead of crashing request if origins list is partially configured
-  return callback(null, true);
+  return callback(new Error(`Origin ${origin} not permitted by CORS policy`), false);
 };
 
 const io = new Server(server, {
@@ -104,10 +116,18 @@ const authLimiter = rateLimit({
 });
 app.use('/api/auth', authLimiter);
 
-// Health check endpoints
+// Health check endpoints with database status verification
 const handleHealthCheck = (req, res) => {
-  res.status(200).json({
-    status: 'ok',
+  const isDbConnected = mongoose.connection.readyState === 1;
+  const dbStatus = isDbConnected
+    ? 'connected'
+    : mongoose.connection.readyState === 2
+    ? 'connecting'
+    : 'disconnected';
+
+  res.status(isDbConnected ? 200 : 503).json({
+    status: isDbConnected ? 'ok' : 'degraded',
+    database: dbStatus,
     appName: 'NEXA Real-time Chat',
     version: '1.0.0',
     timestamp: new Date()

@@ -262,13 +262,14 @@ const resendVerification = async (req, res) => {
 // ==========================================
 const login = async (req, res) => {
   try {
-    const { identifier, password } = req.body;
+    const rawId = req.body.identifier || req.body.email || req.body.username;
+    const { password } = req.body;
 
-    if (!identifier || !password) {
+    if (!rawId || !password) {
       return res.status(400).json({ success: false, message: 'Please provide email/username and password' });
     }
 
-    const cleanId = identifier.toLowerCase().trim();
+    const cleanId = rawId.toLowerCase().trim();
     const user = await User.findOne({
       $or: [{ email: cleanId }, { username: cleanId }]
     }).select('+password +sessions +twoFactorEnabled +loginAttempts +lockUntil');
