@@ -1,0 +1,261 @@
+/* ==========================================================================
+   Red Black Pulse Animated User Background Theme
+   NEXA Red & Black Pulse: Radial gradient, swirling smoke, floating shards, pulsing core
+   ========================================================================== */
+
+.red-black-pulse-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(circle at center, #1a0202 0%, #000000 70%);
+  user-select: none;
+  contain: strict;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.red-black-pulse-container.is-contained {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ==========================================================================
+   1. Red Glowing Core
+   ========================================================================== */
+
+.red-black-pulse-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(75vw, 75vh, 520px);
+  height: min(75vw, 75vh, 520px);
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 0, 0, 0.4) 0%,
+    rgba(200, 0, 0, 0.1) 50%,
+    transparent 70%
+  );
+  border-radius: 50%;
+  filter: blur(25px);
+  animation: redBlackPulseCore 5.5s ease-in-out infinite;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+@keyframes redBlackPulseCore {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(0.92);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.15);
+    opacity: 1;
+  }
+}
+
+/* ==========================================================================
+   2. Swirling Red Smoke Layers (2 Layers)
+   ========================================================================== */
+
+.red-black-pulse-smoke {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgba(255, 0, 0, 0.15) 0%,
+    rgba(138, 3, 3, 0.05) 40%,
+    transparent 70%
+  );
+  filter: blur(40px);
+  will-change: transform;
+}
+
+.red-black-pulse-smoke-1 {
+  width: min(130vw, 130vh, 950px);
+  height: min(130vw, 130vh, 950px);
+  animation: swirl 28s linear infinite;
+  opacity: 0.9;
+}
+
+.red-black-pulse-smoke-2 {
+  width: min(110vw, 110vh, 800px);
+  height: min(110vw, 110vh, 800px);
+  animation: swirl-reverse 20s linear infinite;
+  opacity: 0.75;
+}
+
+@keyframes swirl {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(180deg) scale(1.08);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg) scale(1);
+  }
+}
+
+@keyframes swirl-reverse {
+  0% {
+    transform: translate(-50%, -50%) rotate(360deg) scale(1.06);
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(180deg) scale(0.94);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(0deg) scale(1.06);
+  }
+}
+
+/* ==========================================================================
+   3. Floating Black Shards (3 Variations)
+   ========================================================================== */
+
+.red-black-pulse-shard {
+  position: absolute;
+  background: linear-gradient(135deg, #111111 0%, #000000 100%);
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.2);
+  clip-path: polygon(
+    50% 0%,
+    100% 30%,
+    80% 100%,
+    20% 80%,
+    0% 20%
+  );
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* Shard 1: Top-Left / Mid-Left variation */
+.red-black-pulse-shard-1 {
+  top: 24%;
+  left: 20%;
+  width: 75px;
+  height: 95px;
+  animation: floatShard1 14s ease-in-out infinite;
+  opacity: 0.85;
+}
+
+/* Shard 2: Top-Right / Upper-Center variation */
+.red-black-pulse-shard-2 {
+  top: 16%;
+  right: 22%;
+  width: 105px;
+  height: 130px;
+  animation: floatShard2 18s ease-in-out infinite;
+  opacity: 0.9;
+}
+
+/* Shard 3: Bottom-Center / Mid-Lower variation */
+.red-black-pulse-shard-3 {
+  bottom: 20%;
+  left: 48%;
+  width: 65px;
+  height: 85px;
+  animation: floatShard3 15s ease-in-out infinite;
+  opacity: 0.8;
+}
+
+@keyframes floatShard1 {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translateY(-22px) translateX(14px) rotate(16deg) scale(1.05);
+  }
+}
+
+@keyframes floatShard2 {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px) rotate(22deg) scale(1);
+  }
+  50% {
+    transform: translateY(26px) translateX(-18px) rotate(40deg) scale(0.95);
+  }
+}
+
+@keyframes floatShard3 {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px) rotate(-14deg) scale(1);
+  }
+  50% {
+    transform: translateY(-18px) translateX(-12px) rotate(-30deg) scale(1.06);
+  }
+}
+
+/* ==========================================================================
+   Preview Card Sizing (Settings & Theme Selector Cards)
+   ========================================================================== */
+
+.red-black-pulse-container.is-preview .red-black-pulse-core {
+  width: 110px;
+  height: 110px;
+  filter: blur(12px);
+}
+
+.red-black-pulse-container.is-preview .red-black-pulse-smoke-1 {
+  width: 160px;
+  height: 160px;
+  filter: blur(16px);
+}
+
+.red-black-pulse-container.is-preview .red-black-pulse-smoke-2 {
+  width: 130px;
+  height: 130px;
+  filter: blur(14px);
+}
+
+.red-black-pulse-container.is-preview .red-black-pulse-shard-1 {
+  width: 22px;
+  height: 28px;
+  box-shadow: 0 0 8px rgba(255, 0, 0, 0.3);
+}
+
+.red-black-pulse-container.is-preview .red-black-pulse-shard-2 {
+  width: 30px;
+  height: 38px;
+  box-shadow: 0 0 8px rgba(255, 0, 0, 0.3);
+}
+
+.red-black-pulse-container.is-preview .red-black-pulse-shard-3 {
+  width: 18px;
+  height: 24px;
+  box-shadow: 0 0 8px rgba(255, 0, 0, 0.3);
+}
+
+/* ==========================================================================
+   Reduced Motion Accessibility
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .red-black-pulse-core {
+    animation: none !important;
+    transform: translate(-50%, -50%) scale(1) !important;
+    opacity: 0.85 !important;
+  }
+
+  .red-black-pulse-smoke-1,
+  .red-black-pulse-smoke-2 {
+    animation: none !important;
+    transform: translate(-50%, -50%) rotate(0deg) !important;
+  }
+
+  .red-black-pulse-shard-1,
+  .red-black-pulse-shard-2,
+  .red-black-pulse-shard-3 {
+    animation: none !important;
+    transform: none !important;
+  }
+}

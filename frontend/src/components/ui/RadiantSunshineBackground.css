@@ -1,0 +1,273 @@
+/* ==========================================================================
+   Radiant Sunshine Animated Background (Nexa Light Theme)
+   ========================================================================== */
+
+.radiant-sunshine-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(145deg, #1d4ed8 0%, #3b82f6 45%, #93c5fd 100%);
+  user-select: none;
+}
+
+.radiant-sunshine-container.is-contained {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Base sky subtle ambient color shift */
+.radiant-sky-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 85% 15%, rgba(254, 240, 138, 0.45) 0%, rgba(147, 197, 253, 0.2) 50%, transparent 80%);
+}
+
+/* ==========================================================================
+   Sun Bloom & Glow Effects (Upper Right)
+   ========================================================================== */
+
+.radiant-sun-anchor {
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 500px;
+  height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* Core Sun Disc */
+.radiant-sun-core {
+  width: 170px;
+  height: 170px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 45%, #fffbeb 75%, #fde047 100%);
+  box-shadow:
+    0 0 50px 20px rgba(255, 255, 255, 0.95),
+    0 0 100px 40px rgba(254, 240, 138, 0.8),
+    0 0 180px 80px rgba(250, 204, 21, 0.5);
+  animation: radiantSunPulse 6s ease-in-out infinite alternate;
+}
+
+/* Inner Sun Bloom */
+.radiant-sun-bloom-inner {
+  position: absolute;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.5) 0%, rgba(254, 240, 138, 0.35) 45%, transparent 70%);
+  filter: blur(40px);
+  animation: radiantSunPulse 7s ease-in-out infinite alternate;
+}
+
+/* Outer Sun Atmospheric Glow */
+.radiant-sun-bloom-outer {
+  position: absolute;
+  width: 850px;
+  height: 850px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(254, 240, 138, 0.3) 0%, rgba(251, 191, 36, 0.18) 40%, rgba(147, 197, 253, 0.08) 70%, transparent 85%);
+  filter: blur(80px);
+  animation: radiantSunPulse 10s ease-in-out infinite alternate;
+}
+
+@keyframes radiantSunPulse {
+  0% {
+    transform: scale(0.96);
+    opacity: 0.88;
+  }
+  100% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+/* ==========================================================================
+   Slowly Rotating Sun Rays (SVG)
+   ========================================================================== */
+
+.radiant-sun-rays {
+  position: absolute;
+  width: 1400px;
+  height: 1400px;
+  pointer-events: none;
+  transform-origin: center center;
+  animation: radiantRotateRays 90s linear infinite;
+  opacity: 0.65;
+}
+
+.radiant-sun-rays-secondary {
+  position: absolute;
+  width: 1200px;
+  height: 1200px;
+  pointer-events: none;
+  transform-origin: center center;
+  animation: radiantRotateRaysReverse 120s linear infinite;
+  opacity: 0.4;
+}
+
+@keyframes radiantRotateRays {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes radiantRotateRaysReverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+/* ==========================================================================
+   Moving Blurred Clouds
+   ========================================================================== */
+
+.radiant-cloud {
+  position: absolute;
+  pointer-events: none;
+  filter: blur(35px);
+  opacity: 0.6;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(240, 249, 255, 0.4) 100%);
+  will-change: transform;
+}
+
+.radiant-cloud-1 {
+  top: 12%;
+  width: 520px;
+  height: 160px;
+  animation: radiantDriftCloud1 65s linear infinite;
+}
+
+.radiant-cloud-2 {
+  top: 38%;
+  width: 680px;
+  height: 200px;
+  opacity: 0.52;
+  animation: radiantDriftCloud2 85s linear infinite;
+}
+
+.radiant-cloud-3 {
+  top: 65%;
+  width: 580px;
+  height: 180px;
+  opacity: 0.48;
+  animation: radiantDriftCloud3 105s linear infinite;
+}
+
+@keyframes radiantDriftCloud1 {
+  0% {
+    transform: translateX(-550px);
+  }
+  100% {
+    transform: translateX(calc(100vw + 550px));
+  }
+}
+
+@keyframes radiantDriftCloud2 {
+  0% {
+    transform: translateX(calc(100vw + 700px));
+  }
+  100% {
+    transform: translateX(-700px);
+  }
+}
+
+@keyframes radiantDriftCloud3 {
+  0% {
+    transform: translateX(-600px);
+  }
+  100% {
+    transform: translateX(calc(100vw + 600px));
+  }
+}
+
+/* ==========================================================================
+   Soft Glowing Circles / Atmospheric Flares
+   ========================================================================== */
+
+.radiant-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(60px);
+}
+
+.radiant-orb-1 {
+  top: 30%;
+  right: 32%;
+  width: 240px;
+  height: 240px;
+  background: rgba(254, 240, 138, 0.22);
+  animation: radiantOrbFloat 14s ease-in-out infinite alternate;
+}
+
+.radiant-orb-2 {
+  top: 55%;
+  right: 52%;
+  width: 320px;
+  height: 320px;
+  background: rgba(191, 219, 254, 0.25);
+  animation: radiantOrbFloat 18s ease-in-out infinite alternate;
+}
+
+.radiant-orb-3 {
+  top: 75%;
+  right: 70%;
+  width: 280px;
+  height: 280px;
+  background: rgba(253, 224, 71, 0.16);
+  animation: radiantOrbFloat 22s ease-in-out infinite alternate;
+}
+
+@keyframes radiantOrbFloat {
+  0% {
+    transform: translate(0, 0) scale(0.95);
+  }
+  50% {
+    transform: translate(-25px, 20px) scale(1.05);
+  }
+  100% {
+    transform: translate(15px, -15px) scale(1);
+  }
+}
+
+/* ==========================================================================
+   Floating Light Particles Canvas
+   ========================================================================== */
+
+.radiant-particles-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .radiant-sun-core,
+  .radiant-sun-bloom-inner,
+  .radiant-sun-bloom-outer,
+  .radiant-sun-rays,
+  .radiant-sun-rays-secondary,
+  .radiant-cloud,
+  .radiant-orb {
+    animation: none !important;
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "nexa",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node start-dev.js",
+    "dev:all": "node start-dev.js",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "npm --prefix backend run dev",
+    "start": "node start-dev.js",
+    "start:backend": "npm --prefix backend start",
+    "build:frontend": "npm --prefix frontend run build",
+    "clean:demo": "npm --prefix backend run clean:demo"
+  }
+}
