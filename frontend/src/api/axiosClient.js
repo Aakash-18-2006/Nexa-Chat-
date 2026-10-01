@@ -1,22 +1,9 @@
 import axios from 'axios';
 
-// Dynamically determine the base URL:
-// In production (Vercel, Render), VITE_API_URL specifies the deployed backend origin.
-// In local development, defaults to '/api' which Vite proxies to http://localhost:5000.
-const getBaseURL = () => {
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl) {
-    return envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/$/, '')}/api`;
-  }
-  // Native Capacitor WebView fallback to production backend
-  if (typeof window !== 'undefined' && (window.location.protocol === 'capacitor:' || (window.location.hostname === 'localhost' && !window.location.port))) {
-    return 'https://nexa-backend.onrender.com/api';
-  }
-  return '/api';
-};
+import { getApiBaseUrl } from '../utils/urlConfig';
 
 const api = axios.create({
-  baseURL: getBaseURL(),
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json'
   }

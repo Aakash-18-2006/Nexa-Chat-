@@ -6,6 +6,7 @@ import { chatApi, groupApi, userApi, followApi } from '../../api/endpoints';
 import { Avatar } from '../ui/Avatar';
 import { UserProfileModal } from '../profile/UserProfileModal';
 import { formatDate, formatFileSize } from '../../utils/formatters';
+import { resolveMediaUrl } from '../../utils/urlConfig';
 import AnimatedSendIcon from '../common/AnimatedSendIcon';
 import {
   X,
@@ -886,17 +887,20 @@ export const RightPanel = ({ conversation, onClose, onOpenAddMember }) => {
               <p className="text-center text-xs text-slate-500 py-8">No shared photos yet</p>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                {images.map((img, i) => (
-                  <a
-                    key={i}
-                    href={img.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="aspect-square rounded-xl overflow-hidden border border-white/10 hover:opacity-90 transition-opacity"
-                  >
-                    <img src={img.url} alt="Shared" className="w-full h-full object-cover" />
-                  </a>
-                ))}
+                {images.map((img, i) => {
+                  const mediaUrl = resolveMediaUrl(img.url);
+                  return (
+                    <a
+                      key={i}
+                      href={mediaUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="aspect-square rounded-xl overflow-hidden border border-white/10 hover:opacity-90 transition-opacity"
+                    >
+                      <img src={mediaUrl} alt="Shared" className="w-full h-full object-cover" />
+                    </a>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -909,33 +913,36 @@ export const RightPanel = ({ conversation, onClose, onOpenAddMember }) => {
               <p className="text-center text-xs text-slate-500 py-8">No shared documents yet</p>
             ) : (
               <div className="space-y-2">
-                {files.map((file, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between p-3 rounded-xl bg-[#0a0a0f] border border-[#ff1744]/15 text-xs shadow-[0_0_12px_rgba(255,23,68,0.02)]"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <FileText className="w-4 h-4 text-[#ff1744] flex-shrink-0" />
-                      <div className="truncate">
-                        <span className="font-medium text-white truncate block">
-                          {file.name}
-                        </span>
-                        <span className="text-[10px] text-slate-400">
-                          {formatFileSize(file.size)}
-                        </span>
-                      </div>
-                    </div>
-                    <a
-                      href={file.url}
-                      download={file.name}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="p-1.5 rounded-lg bg-white/5 hover:bg-[#ff1744]/20 text-white cursor-pointer transition-colors"
+                {files.map((file, i) => {
+                  const fileUrl = resolveMediaUrl(file.url);
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between p-3 rounded-xl bg-[#0a0a0f] border border-[#ff1744]/15 text-xs shadow-[0_0_12px_rgba(255,23,68,0.02)]"
                     >
-                      <Download className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <FileText className="w-4 h-4 text-[#ff1744] flex-shrink-0" />
+                        <div className="truncate">
+                          <span className="font-medium text-white truncate block">
+                            {file.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {formatFileSize(file.size)}
+                          </span>
+                        </div>
+                      </div>
+                      <a
+                        href={fileUrl}
+                        download={file.name}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-[#ff1744]/20 text-white cursor-pointer transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -41,42 +41,77 @@ const server = http.createServer(app);
 const configuredUrls = [
   ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : []),
   ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : [])
-].map((url) => url.trim().replace(/\/$/, '')).filter(Boolean);
+].map((url) => url.trim().replace(/\/+$/, '')).filter(Boolean);
 
 const defaultOrigins = [
+  'https://localhost',
+  'http://localhost',
+  'capacitor://localhost',
+  'ionic://localhost',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000',
-  'http://127.0.0.1:3000'
+  'http://127.0.0.1:3000',
+  'https://nexa-backend.onrender.com'
 ];
 
-const allowedOrigins = configuredUrls.length > 0
-  ? Array.from(new Set([...configuredUrls, ...defaultOrigins]))
-  : defaultOrigins;
+const allowedOrigins = Array.from(new Set([...configuredUrls, ...defaultOrigins]));
+
+const isOriginAllowed = (origin) => {
+  // Allow requests with no origin (e.g. mobile native apps, curl, server-to-server)
+  if (!origin) return true;
+
+  const cleanOrigin = origin.trim().replace(/\/+$/, '');
+
+  if (
+    allowedOrigins.includes(cleanOrigin) ||
+    cleanOrigin.endsWith('.vercel.app') ||
+    cleanOrigin.endsWith('.onrender.com') ||
+    cleanOrigin.endsWith('.netlify.app') ||
+    cleanOrigin.endsWith('.railway.app') ||
+    cleanOrigin.startsWith('https://localhost') ||
+    cleanOrigin.startsWith('http://localhost') ||
+    cleanOrigin.startsWith('capacitor://') ||
+    cleanOrigin.startsWith('ionic://') ||
+    cleanOrigin.includes('localhost') ||
+    cleanOrigin.includes('127.0.0.1')
+  ) {
+    return true;
+  }
+
+  return false;
+};
 
 const corsOriginCheck = (origin, callback) => {
-  // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
-  if (!origin) return callback(null, true);
-  if (
-    allowedOrigins.includes(origin) ||
-    allowedOrigins.includes('*') ||
-    origin.endsWith('.vercel.app') ||
-    origin.endsWith('.onrender.com') ||
-    origin.endsWith('.netlify.app') ||
-    origin.endsWith('.railway.app') ||
-    origin.includes('localhost') ||
-    origin.includes('127.0.0.1')
-  ) {
+  if (isOriginAllowed(origin)) {
     return callback(null, true);
   }
-  return callback(new Error(`Origin ${origin} not permitted by CORS policy`), false);
+  return callback(null, false);
+};
+
+const corsOptions = {
+  origin: corsOriginCheck,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
+  exposedHeaders: ['Authorization'],
+  optionsSuccessStatus: 200
 };
 
 const io = new Server(server, {
   cors: {
     origin: corsOriginCheck,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    credentials: true
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization']
   },
   pingTimeout: 60000,
   pingInterval: 25000
@@ -93,13 +128,8 @@ app.use(
   })
 );
 
-app.use(
-  cors({
-    origin: corsOriginCheck,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
-  })
-);
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));

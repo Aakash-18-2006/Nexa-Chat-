@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Avatar } from '../ui/Avatar';
 import { useCall } from '../../context/CallContext';
 import { formatTime, formatFileSize, formatDuration } from '../../utils/formatters';
+import { resolveMediaUrl } from '../../utils/urlConfig';
 import {
   Check,
   CheckCheck,
@@ -260,17 +261,18 @@ export const MessageItem = React.memo(({
           {message.attachments && message.attachments.length > 0 && (
             <div className="space-y-2 mb-2">
               {message.attachments.map((att, idx) => {
+                const mediaUrl = resolveMediaUrl(att.url);
                 if (message.type === 'image' || att.mimeType?.startsWith('image/')) {
                   return (
                     <a
                       key={idx}
-                      href={att.url}
+                      href={mediaUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block overflow-hidden rounded-xl border border-white/10 hover:opacity-95 transition-opacity"
                     >
                       <img
-                        src={att.url}
+                        src={mediaUrl}
                         alt={att.name || 'Image'}
                         loading="lazy"
                         decoding="async"
@@ -288,7 +290,7 @@ export const MessageItem = React.memo(({
                     >
                       <button
                         type="button"
-                        onClick={() => toggleAudio(att.url)}
+                        onClick={() => toggleAudio(mediaUrl)}
                         className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#ff1744] via-[#d3121f] to-[#991b1b] text-white flex items-center justify-center cursor-pointer shadow-[0_0_10px_rgba(255,23,68,0.4)] hover:scale-105 transition-transform"
                       >
                         {isPlayingAudio ? (
@@ -330,7 +332,7 @@ export const MessageItem = React.memo(({
                       </div>
                     </div>
                     <a
-                      href={att.url}
+                      href={mediaUrl}
                       download={att.name}
                       target="_blank"
                       rel="noopener noreferrer"

@@ -1,4 +1,5 @@
 import React from 'react';
+import { resolveMediaUrl } from '../../utils/urlConfig';
 
 export const Avatar = React.memo(({ src, name = 'User', size = 'md', isOnline = false, showStatus = true }) => {
   const [hasError, setHasError] = React.useState(false);
@@ -8,18 +9,7 @@ export const Avatar = React.memo(({ src, name = 'User', size = 'md', isOnline = 
   }, [src]);
 
   const resolvedSrc = React.useMemo(() => {
-    if (!src) return '';
-    if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:') || src.startsWith('blob:')) {
-      return src;
-    }
-    if (src.startsWith('/uploads')) {
-      const envUrl = import.meta.env.VITE_API_URL || ((typeof window !== 'undefined' && (window.location.protocol === 'capacitor:' || (window.location.hostname === 'localhost' && !window.location.port))) ? 'https://nexa-backend.onrender.com' : '');
-      if (envUrl) {
-        const origin = envUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
-        return `${origin}${src}`;
-      }
-    }
-    return src;
+    return resolveMediaUrl(src);
   }, [src]);
 
   const sizeClasses = {
