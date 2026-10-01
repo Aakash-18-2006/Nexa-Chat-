@@ -1,0 +1,13 @@
+{
+  "appId": "com.nexa.chat",
+  "appName": "NEXA",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "backgroundColor": "#050505"
+  }
+}

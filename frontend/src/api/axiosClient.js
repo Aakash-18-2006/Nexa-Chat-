@@ -8,6 +8,10 @@ const getBaseURL = () => {
   if (envUrl) {
     return envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/$/, '')}/api`;
   }
+  // Native Capacitor WebView fallback to production backend
+  if (typeof window !== 'undefined' && (window.location.protocol === 'capacitor:' || (window.location.hostname === 'localhost' && !window.location.port))) {
+    return 'https://nexa-backend.onrender.com/api';
+  }
   return '/api';
 };
 

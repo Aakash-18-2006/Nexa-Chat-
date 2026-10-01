@@ -26,6 +26,8 @@ export const SocketProvider = ({ children }) => {
 
     const socketServerUrl = import.meta.env.VITE_API_URL
       ? import.meta.env.VITE_API_URL.replace(/\/api$/, '').replace(/\/$/, '')
+      : (typeof window !== 'undefined' && (window.location.protocol === 'capacitor:' || (window.location.hostname === 'localhost' && !window.location.port)))
+      ? 'https://nexa-backend.onrender.com'
       : window.location.origin;
 
     const newSocket = io(socketServerUrl, {
