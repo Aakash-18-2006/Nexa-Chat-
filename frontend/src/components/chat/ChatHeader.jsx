@@ -23,8 +23,12 @@ export const ChatHeader = ({
   const { startCall, callState } = useCall();
 
   const isGroup = conversation?.type === 'group';
+  const currentUserId = (user?._id || user?.id)?.toString();
   const otherParticipant = !isGroup
-    ? conversation?.participants?.find((p) => (p._id || p) !== user?._id)
+    ? conversation?.participants?.find((p) => {
+        const pId = (p?._id || p?.id || p)?.toString();
+        return pId && pId !== currentUserId;
+      })
     : null;
 
   const title = isGroup
@@ -71,20 +75,22 @@ export const ChatHeader = ({
   };
 
   return (
-    <div className="nexa-chat-header h-16 px-4 sm:px-6 bg-[#08080c]/90 backdrop-blur-md border-b border-white/10 flex items-center justify-between flex-shrink-0 z-10">
-      <div className="flex items-center gap-3 min-w-0">
+    <div className="nexa-chat-header h-16 px-3 sm:px-6 bg-[#08080c]/90 backdrop-blur-md border-b border-white/10 flex items-center justify-between flex-shrink-0 z-10 gap-2">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
         {/* Mobile back button */}
         <button
           onClick={onBack}
-          className="md:hidden p-1.5 -ml-1 text-slate-400 hover:text-white rounded-lg cursor-pointer"
+          className="md:hidden p-1.5 -ml-1 text-slate-400 hover:text-white rounded-lg cursor-pointer shrink-0"
+          title="Back to conversations"
+          aria-label="Back to conversations"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-5 h-5 text-[#ff1744]" />
         </button>
 
         {/* Clickable Profile Area */}
         <div
           onClick={onOpenProfile}
-          className="flex items-center gap-3 min-w-0 cursor-pointer group select-none"
+          className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 cursor-pointer group select-none"
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
@@ -95,7 +101,7 @@ export const ChatHeader = ({
           }}
           title={isGroup ? 'View Group Info & Media' : 'View Profile & Info'}
         >
-          <div className="transition-transform group-hover:scale-105 duration-200">
+          <div className="transition-transform group-hover:scale-105 duration-200 shrink-0">
             <Avatar
               src={avatar}
               name={title}
@@ -105,21 +111,21 @@ export const ChatHeader = ({
             />
           </div>
 
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h2 className="text-sm sm:text-base font-bold text-white truncate group-hover:text-[#ff1744] transition-colors">
               {title}
             </h2>
-            <div className="flex items-center gap-1.5 text-xs">
+            <div className="flex items-center gap-1.5 text-xs truncate">
               {isTyping ? (
-                <span className="text-[#ff1744] font-semibold animate-pulse">
+                <span className="text-[#ff1744] font-semibold animate-pulse truncate">
                   {typingText}
                 </span>
               ) : isGroup ? (
-                <span className="text-slate-400">
+                <span className="text-slate-400 truncate">
                   {conversation.participants?.length || 0} members
                 </span>
               ) : isOnline ? (
-                <span className="text-emerald-400 flex items-center gap-1.5 font-medium">
+                <span className="text-emerald-400 flex items-center gap-1.5 font-medium shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" /> Online
                 </span>
               ) : (
@@ -134,15 +140,15 @@ export const ChatHeader = ({
 
       {/* Right Action Controls: 1-to-1 Calling Buttons */}
       {!isGroup && otherParticipant && (
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Audio Call Button */}
           <button
             onClick={handleStartAudioCall}
             disabled={callState !== 'idle'}
             title={isOnline ? 'Start Audio Call' : 'User is offline'}
-            className="p-2 sm:p-2.5 rounded-xl text-slate-300 hover:text-[#ff1744] hover:bg-white/5 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            className="p-1.5 sm:p-2.5 rounded-xl text-slate-300 hover:text-[#ff1744] hover:bg-white/5 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
-            <Phone className="w-5 h-5" />
+            <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
           {/* Video Call Button */}
@@ -150,9 +156,9 @@ export const ChatHeader = ({
             onClick={handleStartVideoCall}
             disabled={callState !== 'idle'}
             title={isOnline ? 'Start Video Call' : 'User is offline'}
-            className="p-2 sm:p-2.5 rounded-xl text-slate-300 hover:text-[#ff1744] hover:bg-white/5 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            className="p-1.5 sm:p-2.5 rounded-xl text-slate-300 hover:text-[#ff1744] hover:bg-white/5 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
-            <Video className="w-5 h-5" />
+            <Video className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
       )}

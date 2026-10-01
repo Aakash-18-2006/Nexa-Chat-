@@ -373,7 +373,7 @@ export const RightPanel = ({ conversation, onClose, onOpenAddMember }) => {
   const relStatus = profileData?.relationshipStatus || 'none';
 
   return (
-    <div className="w-80 lg:w-96 h-full bg-[#08080d] border-l border-white/10 flex flex-col flex-shrink-0 z-20 animate-in slide-in-from-right duration-200">
+    <div className="fixed md:relative inset-0 md:inset-auto w-full md:w-80 lg:w-96 h-full bg-[#08080d] border-l border-white/10 flex flex-col flex-shrink-0 z-40 md:z-20 animate-in slide-in-from-right duration-200">
       {/* Header */}
       <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
         <h3 className="text-sm font-bold text-white tracking-tight">
@@ -388,7 +388,7 @@ export const RightPanel = ({ conversation, onClose, onOpenAddMember }) => {
       </div>
 
       {/* Tabs: User Profile | Media | Files | Pinned */}
-      <div className="flex border-b border-white/5 px-4 pt-2 gap-1 text-xs select-none">
+      <div className="flex border-b border-white/5 px-3 sm:px-4 pt-2 gap-1 text-xs select-none overflow-x-auto scrollbar-none">
         {[
           { id: 'info', label: isGroup ? 'Group Info' : 'User Profile' },
           { id: 'media', label: `Media (${images.length})` },
@@ -398,7 +398,7 @@ export const RightPanel = ({ conversation, onClose, onOpenAddMember }) => {
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-3 py-2 font-medium border-b-2 transition-colors cursor-pointer ${
+            className={`px-3 py-2 font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap flex-shrink-0 ${
               tab === t.id
                 ? 'border-[#ff1744] text-[#ff1744] font-bold shadow-[0_0_12px_rgba(255,23,68,0.25)]'
                 : 'border-transparent text-slate-400 hover:text-white'

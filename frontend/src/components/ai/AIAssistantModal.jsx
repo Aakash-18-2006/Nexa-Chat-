@@ -167,10 +167,20 @@ export const AIAssistantModal = ({ isOpen, onClose, conversation, initialTab = '
         setChatError("Nexa AI's free usage limit has been reached. Please try again later.");
       } else if (serverCode === 'AI_NOT_CONFIGURED') {
         setChatError('Nexa AI is not configured yet.');
+      } else if (serverCode === 'AI_CONFIG_ERROR') {
+        setChatError('Nexa AI configuration is invalid. Please contact administrator.');
+      } else if (serverCode === 'AI_PERMISSION_DENIED') {
+        setChatError('Access to Nexa AI is denied. Please check project permissions.');
+      } else if (serverCode === 'AI_MODEL_UNAVAILABLE') {
+        setChatError(serverMessage || 'Configured Gemini model is unavailable on the Free Tier.');
+      } else if (serverCode === 'AI_SERVICE_UNAVAILABLE') {
+        setChatError('Google AI service is temporarily unavailable. Please try again shortly.');
+      } else if (serverCode === 'AI_MESSAGE_TOO_LONG') {
+        setChatError('Message is too long. Please keep questions under 4,000 characters.');
       } else if (!navigator.onLine || err.code === 'ERR_NETWORK') {
         setChatError('Network error. Please check your internet connection.');
       } else {
-        setChatError(serverMessage || "Nexa AI's free usage limit has been reached. Please try again later.");
+        setChatError(serverMessage || 'Nexa AI was unable to generate a response. Please try again.');
       }
     } finally {
       setLoadingChat(false);
@@ -318,43 +328,43 @@ export const AIAssistantModal = ({ isOpen, onClose, conversation, initialTab = '
       )}
 
       {/* Tabs */}
-      <div className="flex bg-[#050505] p-1 rounded-xl mb-4 border border-[#ff1744]/20 text-xs">
+      <div className="flex bg-[#050505] p-1 rounded-xl mb-4 border border-[#ff1744]/20 text-xs overflow-x-auto gap-1 scrollbar-none">
         <button
           type="button"
           onClick={() => setTab('chat')}
-          className={`flex-1 py-2 font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+          className={`flex-1 min-w-fit px-2.5 py-2 font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
             tab === 'chat'
               ? 'bg-gradient-to-r from-[#ff1744] via-[#d3121f] to-[#991b1b] text-white shadow-[0_0_15px_rgba(255,23,68,0.3)]'
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5" />
+          <Sparkles className="w-3.5 h-3.5 shrink-0" />
           <span>Nexa AI Chat</span>
         </button>
 
         <button
           type="button"
           onClick={() => setTab('summary')}
-          className={`flex-1 py-2 font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+          className={`flex-1 min-w-fit px-2.5 py-2 font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
             tab === 'summary'
               ? 'bg-gradient-to-r from-[#ff1744] via-[#d3121f] to-[#991b1b] text-white shadow-[0_0_15px_rgba(255,23,68,0.3)]'
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          <FileText className="w-3.5 h-3.5" />
+          <FileText className="w-3.5 h-3.5 shrink-0" />
           <span>Summarize Chat</span>
         </button>
 
         <button
           type="button"
           onClick={() => setTab('translator')}
-          className={`flex-1 py-2 font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+          className={`flex-1 min-w-fit px-2.5 py-2 font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
             tab === 'translator'
               ? 'bg-gradient-to-r from-[#ff1744] via-[#d3121f] to-[#991b1b] text-white shadow-[0_0_15px_rgba(255,23,68,0.3)]'
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          <Languages className="w-3.5 h-3.5" />
+          <Languages className="w-3.5 h-3.5 shrink-0" />
           <span>Translator</span>
         </button>
       </div>
@@ -363,7 +373,7 @@ export const AIAssistantModal = ({ isOpen, onClose, conversation, initialTab = '
       {/* TAB 1: NEXA AI CONVERSATIONAL CHAT (Gemini Free Tier)     */}
       {/* ========================================================= */}
       {tab === 'chat' && (
-        <div className="flex flex-col h-[460px] bg-[#07070a] rounded-2xl border border-[#ff1744]/20 overflow-hidden">
+        <div className="flex flex-col h-[52dvh] min-h-[280px] max-h-[460px] bg-[#07070a] rounded-2xl border border-[#ff1744]/20 overflow-hidden">
           {/* Free Tier Indicator Header Bar */}
           <div className="flex items-center justify-between px-3.5 py-2 bg-[#050505] border-b border-white/5 text-[11px] text-slate-400 select-none">
             <div className="flex items-center gap-1.5">

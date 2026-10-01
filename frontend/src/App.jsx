@@ -84,8 +84,8 @@ const ChatDashboard = () => {
 
       {/* Nexa Application UI (Stacked cleanly above the background animation) */}
       <div className="relative z-10 w-full h-full flex overflow-hidden">
-        {/* Column 1: Left Navigation Rail (Always visible on desktop/tablet; hidden on mobile if chat is active) */}
-        <div className={`relative z-20 ${hasActiveChat ? 'hidden md:flex' : 'flex'} h-full flex-shrink-0`}>
+        {/* Column 1: Left Navigation Rail (Always visible on desktop/tablet; hidden on mobile) */}
+        <div className="relative z-20 hidden md:flex h-full flex-shrink-0">
           <NavigationRail
             activeSection={activeSection}
             onChangeSection={setActiveSection}
@@ -97,7 +97,7 @@ const ChatDashboard = () => {
         </div>
 
         {/* Column 2: Conversation Sidebar (Always on desktop/tablet; on mobile full screen if no active chat) */}
-        <div className={`relative z-10 ${hasActiveChat ? 'hidden md:flex' : 'flex flex-1 md:flex-initial'} h-full flex-shrink-0`}>
+        <div className={`relative z-10 ${hasActiveChat ? 'hidden md:flex' : 'flex'} w-full md:w-auto flex-1 md:flex-initial h-full min-w-0 flex-shrink-0`}>
           <Sidebar
             activeSection={activeSection}
             onChangeSection={setActiveSection}
@@ -114,9 +114,9 @@ const ChatDashboard = () => {
         </div>
 
         {/* Column 3 & 4: Central Chat Workspace + Chat Info Drawer */}
-        <div className={`relative z-0 ${!hasActiveChat ? 'hidden md:flex' : 'flex'} flex-1 h-full min-w-0`}>
+        <div className={`relative z-0 ${!hasActiveChat ? 'hidden md:flex' : 'flex'} flex-1 h-full min-w-0 w-full`}>
           {activeTempRoom ? (
-            <TempRoomWindow />
+            <TempRoomWindow onBack={handleMobileBack} />
           ) : (
             <ChatWindow
               onBack={handleMobileBack}

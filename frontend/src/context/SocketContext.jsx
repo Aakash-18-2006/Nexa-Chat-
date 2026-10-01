@@ -40,10 +40,16 @@ export const SocketProvider = ({ children }) => {
 
     newSocket.on('connect', () => {
       setIsConnected(true);
+      const uid = (user?._id || user?.id)?.toString();
+      console.log('[NEXA CALL DEBUG] Socket connected:', newSocket.id);
+      console.log('[NEXA CALL DEBUG] User ID:', uid);
+      console.log('[NEXA CALL DEBUG] User registered:', user?.username || user?.name || uid);
+      console.log('[NEXA CALL DEBUG] Joined room: user:' + uid);
     });
 
-    newSocket.on('disconnect', () => {
+    newSocket.on('disconnect', (reason) => {
       setIsConnected(false);
+      console.log('[NEXA CALL DEBUG] Socket disconnected:', reason);
     });
 
     newSocket.on('online_users_list', (userIds = []) => {

@@ -17,7 +17,7 @@ const EMOJI_CATEGORIES = [
 
 export const EmojiPicker = ({ onSelectEmoji, onClose }) => {
   return (
-    <div className="absolute bottom-16 left-2 sm:left-4 z-30 w-72 sm:w-80 bg-[#121721] border border-white/10 rounded-2xl shadow-2xl p-3 animate-in fade-in zoom-in-95 duration-150">
+    <div className="absolute bottom-16 left-0 sm:left-2 z-30 w-72 sm:w-80 max-w-[calc(100vw-24px)] bg-[#121721] border border-white/10 rounded-2xl shadow-2xl p-3 animate-in fade-in zoom-in-95 duration-150">
       <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
         <span className="text-xs font-semibold text-slate-300">Emoji Picker</span>
         <button

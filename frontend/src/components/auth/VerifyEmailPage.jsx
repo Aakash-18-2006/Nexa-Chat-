@@ -66,12 +66,12 @@ export const VerifyEmailPage = ({ onNavigateToLogin }) => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#05070d] text-slate-100 flex items-center justify-center p-4 relative overflow-hidden select-none">
+    <div className="min-h-[100dvh] w-full bg-[#05070d] text-slate-100 flex items-center justify-center p-3 sm:p-4 relative overflow-y-auto select-none">
       {/* Background glow effects */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#ff1744]/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-[#991b1b]/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="relative w-full max-w-md bg-[#0a0a0f]/90 border border-[#ff1744]/25 rounded-3xl p-8 shadow-[0_0_40px_rgba(255,23,68,0.15)] backdrop-blur-xl z-10 animate-in fade-in duration-300">
+      <div className="relative w-full max-w-md max-w-[calc(100vw-24px)] max-h-[calc(100dvh-2rem)] overflow-y-auto bg-[#0a0a0f]/90 border border-[#ff1744]/25 rounded-3xl p-5 sm:p-8 shadow-[0_0_40px_rgba(255,23,68,0.15)] backdrop-blur-xl z-10 animate-in fade-in duration-300 my-auto">
         
         {/* Header Icon */}
         <div className="flex flex-col items-center text-center mb-6">

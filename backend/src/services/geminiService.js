@@ -28,10 +28,10 @@ class GeminiService {
 
   /**
    * Retrieves the configured Gemini model name.
-   * STRICT FREE-TIER: defaults to gemini-2.5-flash-lite, with no automatic paid fallbacks.
+   * STRICT FREE-TIER: defaults to gemini-3.5-flash-lite, with no automatic paid fallbacks.
    */
   getModelName() {
-    return (process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite').trim();
+    return (process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite').trim();
   }
 
   /**
@@ -58,18 +58,23 @@ class GeminiService {
   }
 
   /**
-   * Checks if an error is due to an invalid or malformed API key.
+   * Checks if an error is due to an invalid or malformed API key / config.
    */
   isAuthOrConfigError(err) {
     if (!err) return false;
     const status = err.status || err.statusCode || (err.error && err.error.code);
-    if (status === 400 || status === 401 || status === 403) {
-      const msg = (err.message || '').toLowerCase();
+    const msg = (err.message || '').toLowerCase();
+    const details = JSON.stringify(err.error || err.details || '').toLowerCase();
+    const combined = `${msg} ${details}`;
+
+    if (status === 400 || status === 401) {
       if (
-        msg.includes('api key') ||
-        msg.includes('credential') ||
-        msg.includes('invalid_argument') ||
-        msg.includes('api_key_invalid')
+        combined.includes('api key') ||
+        combined.includes('api_key') ||
+        combined.includes('credential') ||
+        combined.includes('invalid_argument') ||
+        combined.includes('api_key_invalid') ||
+        combined.includes('key not valid')
       ) {
         return true;
       }
@@ -78,14 +83,62 @@ class GeminiService {
   }
 
   /**
-   * Checks if the configured model is unavailable or unsupported on the free tier.
+   * Checks if an error is due to permission/access restriction.
    */
-  isModelNotFoundError(err) {
+  isPermissionError(err) {
     if (!err) return false;
     const status = err.status || err.statusCode || (err.error && err.error.code);
-    if (status === 404) return true;
+    if (status === 403) return true;
     const msg = (err.message || '').toLowerCase();
-    return msg.includes('not found') || msg.includes('is not supported') || msg.includes('unsupported model');
+    const details = JSON.stringify(err.error || err.details || '').toLowerCase();
+    const combined = `${msg} ${details}`;
+    return combined.includes('permission_denied') || combined.includes('permission denied') || combined.includes('forbidden') || combined.includes('access denied');
+  }
+
+  /**
+   * Checks if Google's response explicitly indicates that the configured model is unavailable or unsupported.
+   * Does NOT treat generic HTTP 404s (e.g., unknown route) as model-unavailable.
+   */
+  isModelUnavailableError(err, modelName) {
+    if (!err) return false;
+    const msg = (err.message || '').toLowerCase();
+    const details = JSON.stringify(err.error || err.details || '').toLowerCase();
+    const combined = `${msg} ${details}`;
+
+    const cleanModel = (modelName || '').toLowerCase().replace(/^models\//, '');
+    const modelMentioned = combined.includes(cleanModel) || combined.includes('model');
+
+    const explicitUnavailable =
+      combined.includes('not found for api version') ||
+      combined.includes('not supported for generatecontent') ||
+      combined.includes('unsupported model') ||
+      combined.includes('model not found') ||
+      combined.includes('is not supported') ||
+      combined.includes('model is deprecated') ||
+      combined.includes('model was shut down');
+
+    return modelMentioned && explicitUnavailable;
+  }
+
+  /**
+   * Checks if the error is a temporary Google service failure.
+   */
+  isServiceUnavailableError(err) {
+    if (!err) return false;
+    const status = err.status || err.statusCode || (err.error && err.error.code);
+    if (status === 503 || status === 504) return true;
+    const msg = (err.message || '').toLowerCase();
+    const details = JSON.stringify(err.error || err.details || '').toLowerCase();
+    const combined = `${msg} ${details}`;
+    return (
+      combined.includes('unavailable') ||
+      combined.includes('service unavailable') ||
+      combined.includes('backend error') ||
+      combined.includes('internal server error') ||
+      combined.includes('deadline exceeded') ||
+      combined.includes('gateway timeout') ||
+      combined.includes('overloaded')
+    );
   }
 
   /**
@@ -162,15 +215,31 @@ class GeminiService {
         throw authError;
       }
 
-      // 3. Model not found or unavailable on free tier: return clear error, do NOT switch to another model
-      if (this.isModelNotFoundError(err)) {
+      // 3. Permission / access restriction error
+      if (this.isPermissionError(err)) {
+        const permError = new Error('Access to Nexa AI is denied. Please check project permissions.');
+        permError.code = 'AI_PERMISSION_DENIED';
+        permError.statusCode = 403;
+        throw permError;
+      }
+
+      // 4. Configured model explicitly unavailable or not supported
+      if (this.isModelUnavailableError(err, modelName)) {
         const modelError = new Error(`Configured Gemini model '${modelName}' is unavailable on the Free Tier.`);
         modelError.code = 'AI_MODEL_UNAVAILABLE';
         modelError.statusCode = 500;
         throw modelError;
       }
 
-      // 4. General service error: return sanitized user-friendly message
+      // 5. Temporary Google service failure
+      if (this.isServiceUnavailableError(err)) {
+        const tempError = new Error('Google AI service is temporarily unavailable. Please try again shortly.');
+        tempError.code = 'AI_SERVICE_UNAVAILABLE';
+        tempError.statusCode = 503;
+        throw tempError;
+      }
+
+      // 6. Other general service errors
       const genericError = new Error('Nexa AI was unable to generate a response. Please try again.');
       genericError.code = 'AI_SERVICE_ERROR';
       genericError.statusCode = 500;

@@ -159,7 +159,7 @@ export const MessageComposer = () => {
   };
 
   return (
-    <div className="nexa-chat-composer relative border-t border-white/10 bg-[#0f121a] p-3 sm:p-4 z-20">
+    <div className="nexa-chat-composer relative border-t border-white/10 bg-[#0f121a] p-2.5 sm:p-4 pb-[max(0.625rem,env(safe-area-inset-bottom))] z-20">
       {/* Upload Progress Bar */}
       {uploadProgress !== null && (
         <div className="absolute top-0 left-0 right-0 h-1 bg-white/10 overflow-hidden">
@@ -212,18 +212,18 @@ export const MessageComposer = () => {
           onCancel={() => setIsRecordingVoice(false)}
         />
       ) : (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Emoji Toggle */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setShowEmoji((prev) => !prev)}
-              className={`p-2.5 rounded-xl transition-colors cursor-pointer ${
+              className={`p-2 sm:p-2.5 rounded-xl transition-colors cursor-pointer ${
                 showEmoji ? 'text-[#ff1744] bg-[#ff1744]/15' : 'text-slate-400 hover:text-[#ff1744] hover:bg-white/5'
               }`}
               title="Add Emoji"
             >
-              <Smile className="w-5 h-5" />
+              <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
             {showEmoji && (
@@ -239,10 +239,10 @@ export const MessageComposer = () => {
             <button
               type="button"
               onClick={() => setShowAttachmentMenu((prev) => !prev)}
-              className="p-2.5 rounded-xl text-slate-400 hover:text-[#ff1744] hover:bg-white/5 transition-colors cursor-pointer"
+              className="p-2 sm:p-2.5 rounded-xl text-slate-400 hover:text-[#ff1744] hover:bg-white/5 transition-colors cursor-pointer"
               title="Add Attachment"
             >
-              <Paperclip className="w-5 h-5" />
+              <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
             {showAttachmentMenu && (
@@ -289,8 +289,9 @@ export const MessageComposer = () => {
               value={text}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder="Write a message... (Enter to send, Shift+Enter for new line)"
-              className="nexa-composer-textarea w-full bg-[#0d0d14] border border-black dark:border-white/10 rounded-2xl px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-[#ff1744] focus:shadow-[0_0_15px_rgba(255,23,68,0.25)] resize-none max-h-32 transition-all leading-relaxed"
+              placeholder="Write a message..."
+              title="Press Enter to send, Shift+Enter for new line"
+              className="nexa-composer-textarea w-full bg-[#0d0d14] border border-black dark:border-white/10 rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-[#ff1744] focus:shadow-[0_0_15px_rgba(255,23,68,0.25)] resize-none max-h-32 transition-all leading-relaxed"
             />
           </div>
 
@@ -299,19 +300,19 @@ export const MessageComposer = () => {
             <button
               type="button"
               onClick={handleSend}
-              className="p-2.5 rounded-2xl bg-gradient-to-tr from-[#991b1b] via-[#d3121f] to-[#ff1744] hover:brightness-110 text-white font-bold shadow-[0_0_15px_rgba(255,23,68,0.4)] hover:shadow-[0_0_25px_rgba(255,23,68,0.6)] hover:scale-105 active:scale-95 transition-all cursor-pointer flex-shrink-0"
+              className="p-2 sm:p-2.5 rounded-2xl bg-gradient-to-tr from-[#991b1b] via-[#d3121f] to-[#ff1744] hover:brightness-110 text-white font-bold shadow-[0_0_15px_rgba(255,23,68,0.4)] hover:shadow-[0_0_25px_rgba(255,23,68,0.6)] hover:scale-105 active:scale-95 transition-all cursor-pointer flex-shrink-0"
               title="Send Message"
             >
-              <Send className="w-5 h-5" />
+              <Send className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           ) : (
             <button
               type="button"
               onClick={() => setIsRecordingVoice(true)}
-              className="p-2.5 rounded-2xl bg-white/5 hover:bg-[#ff1744]/10 text-slate-300 hover:text-[#ff1744] border border-white/10 hover:border-[#ff1744]/30 transition-all cursor-pointer flex-shrink-0 hover:shadow-[0_0_10px_rgba(255,23,68,0.2)]"
+              className="p-2 sm:p-2.5 rounded-2xl bg-white/5 hover:bg-[#ff1744]/10 text-slate-300 hover:text-[#ff1744] border border-white/10 hover:border-[#ff1744]/30 transition-all cursor-pointer flex-shrink-0 hover:shadow-[0_0_10px_rgba(255,23,68,0.2)]"
               title="Record Voice Note"
             >
-              <Mic className="w-5 h-5" />
+              <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           )}
         </div>

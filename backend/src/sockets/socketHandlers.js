@@ -50,6 +50,12 @@ const initSocketHandlers = (io) => {
   io.on('connection', async (socket) => {
     const userId = socket.user._id.toString();
 
+    console.log(`[NEXA CALL DEBUG] Socket connected: ${socket.id}`);
+    console.log(`[NEXA CALL DEBUG] User registered: ${socket.user.username || socket.user.name || userId}`);
+    console.log(`[NEXA CALL DEBUG] User ID: ${userId}`);
+    console.log(`[NEXA CALL DEBUG] Socket ID: ${socket.id}`);
+    console.log(`[NEXA CALL DEBUG] Joined room: user:${userId}`);
+
     // 1. Presence: Add to online users
     if (!onlineUsers.has(userId)) {
       onlineUsers.set(userId, new Set());
@@ -441,10 +447,25 @@ const initSocketHandlers = (io) => {
     });
 
     // 9. WebRTC 1-to-1 Audio & Video Calling Handlers
-    socket.on('call:initiate', async ({ targetUserId, conversationId, callType = 'audio' }, callback) => {
+    socket.on('call:initiate', async ({ targetUserId, receiverId, conversationId, callType = 'audio' }, callback) => {
       try {
         const callerId = socket.user._id.toString();
-        const targetIdStr = targetUserId ? targetUserId.toString() : null;
+        // Extract string ID regardless of whether object or string was passed
+        let rawTarget = targetUserId || receiverId;
+        if (typeof rawTarget === 'object' && rawTarget !== null) {
+          rawTarget = rawTarget._id || rawTarget.id || rawTarget.userId;
+        }
+        const targetIdStr = rawTarget?.toString();
+        const targetRoom = `user:${targetIdStr}`;
+
+        console.log(`[NEXA CALL DEBUG] call:initiate received`);
+        console.log(`[NEXA CALL DEBUG] caller: ${callerId}`);
+        console.log(`[NEXA CALL DEBUG] targetUserId: ${targetIdStr}`);
+        console.log(`[NEXA CALL DEBUG] target room: ${targetRoom}`);
+
+        const targetSockets = onlineUsers.get(targetIdStr);
+        const targetSocketCount = targetSockets ? targetSockets.size : 0;
+        console.log(`[NEXA CALL DEBUG] target socket found: ${targetSocketCount > 0 ? Array.from(targetSockets).join(', ') : 'none'}`);
 
         if (!targetIdStr || targetIdStr === callerId) {
           if (typeof callback === 'function') callback({ success: false, message: 'Invalid target user' });
@@ -459,9 +480,25 @@ const initSocketHandlers = (io) => {
           return;
         }
 
-        // Connection check: Both users must be mutual contacts
-        const isConnected = await Connection.areUsersConnected(callerId, targetIdStr);
+        // Connection/Conversation check: Both users must be mutual contacts or in conversation
+        let isConnected = await Connection.areUsersConnected(callerId, targetIdStr);
+        if (!isConnected && conversationId) {
+          const conv = await Conversation.findOne({
+            _id: conversationId,
+            participants: { $all: [callerId, targetIdStr] }
+          });
+          if (conv) isConnected = true;
+        }
         if (!isConnected) {
+          const directConv = await Conversation.findOne({
+            type: 'direct',
+            participants: { $all: [callerId, targetIdStr] }
+          });
+          if (directConv) isConnected = true;
+        }
+
+        if (!isConnected) {
+          console.warn(`[NEXA CALL DEBUG] Call rejected: not connected and no mutual conversation found between ${callerId} and ${targetIdStr}`);
           socket.emit('call:error', { message: 'Cannot call: you must be mutual contacts to call.' });
           if (typeof callback === 'function') callback({ success: false, message: 'Not connected' });
           return;
@@ -560,8 +597,7 @@ const initSocketHandlers = (io) => {
         userActiveCall.set(callerId, callId);
         userActiveCall.set(targetIdStr, callId);
 
-        // Send incoming call notification to recipient
-        io.to(`user:${targetIdStr}`).emit('call:incoming', {
+        const incomingPayload = {
           callId,
           conversationId,
           callType,
@@ -571,7 +607,13 @@ const initSocketHandlers = (io) => {
             username: socket.user.username,
             avatar: socket.user.avatar
           }
-        });
+        };
+
+        console.log(`[NEXA CALL DEBUG] Sending call:incoming to: ${targetRoom}`);
+        console.log(`[NEXA CALL DEBUG] Payload:`, JSON.stringify(incomingPayload));
+
+        // Send incoming call notification to recipient
+        io.to(targetRoom).emit('call:incoming', incomingPayload);
 
         // Notify caller that call is initiated
         socket.emit('call:initiated', {
@@ -626,7 +668,7 @@ const initSocketHandlers = (io) => {
         io.to(`user:${active.callerId}`).emit('call:accepted', { callId, connectedAt });
         io.to(`user:${active.receiverId}`).emit('call:accepted', { callId, connectedAt });
 
-        if (typeof callback === 'function') callback({ success: true });
+        if (typeof callback === 'function') callback({ success: true, callId, connectedAt });
       } catch (err) {
         console.error('call:accept error:', err);
         if (typeof callback === 'function') callback({ success: false, message: err.message });
@@ -693,12 +735,60 @@ const initSocketHandlers = (io) => {
       }
     });
 
-    socket.on('call:signal', ({ callId, targetUserId, signal }) => {
-      if (!callId || !targetUserId || !signal) return;
-      io.to(`user:${targetUserId}`).emit('call:signal', {
+    // WebRTC Signaling Relay
+    socket.on('call:signal', ({ callId, targetUserId, to, signal }) => {
+      const recipientId = (targetUserId || to)?.toString();
+      if (!callId || !recipientId || !signal) return;
+      io.to(`user:${recipientId}`).emit('call:signal', {
         callId,
         senderId: socket.user._id.toString(),
         signal
+      });
+    });
+
+    // WebRTC Direct Event Aliases (for explicit webrtc-offer, webrtc-answer, ice-candidate support)
+    socket.on('webrtc-offer', ({ callId, targetUserId, to, offer }) => {
+      const recipientId = (targetUserId || to)?.toString();
+      if (!recipientId || !offer) return;
+      io.to(`user:${recipientId}`).emit('call:signal', {
+        callId,
+        senderId: socket.user._id.toString(),
+        signal: { type: 'offer', offer }
+      });
+      io.to(`user:${recipientId}`).emit('webrtc-offer', {
+        callId,
+        senderId: socket.user._id.toString(),
+        offer
+      });
+    });
+
+    socket.on('webrtc-answer', ({ callId, targetUserId, to, answer }) => {
+      const recipientId = (targetUserId || to)?.toString();
+      if (!recipientId || !answer) return;
+      io.to(`user:${recipientId}`).emit('call:signal', {
+        callId,
+        senderId: socket.user._id.toString(),
+        signal: { type: 'answer', answer }
+      });
+      io.to(`user:${recipientId}`).emit('webrtc-answer', {
+        callId,
+        senderId: socket.user._id.toString(),
+        answer
+      });
+    });
+
+    socket.on('ice-candidate', ({ callId, targetUserId, to, candidate }) => {
+      const recipientId = (targetUserId || to)?.toString();
+      if (!recipientId || !candidate) return;
+      io.to(`user:${recipientId}`).emit('call:signal', {
+        callId,
+        senderId: socket.user._id.toString(),
+        signal: { type: 'candidate', candidate }
+      });
+      io.to(`user:${recipientId}`).emit('ice-candidate', {
+        callId,
+        senderId: socket.user._id.toString(),
+        candidate
       });
     });
 

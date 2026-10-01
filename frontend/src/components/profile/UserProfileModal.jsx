@@ -927,8 +927,8 @@ export const UserProfileModal = ({
 
           {/* Confirmation Dialogs for Unfollow & Block */}
           {confirmAction && (
-            <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-              <div className="w-full max-w-sm bg-[#0a0a0f] border border-[#ff1744]/25 rounded-2xl p-6 shadow-[0_0_35px_rgba(255,23,68,0.15)] space-y-4">
+            <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+              <div className="w-full max-w-sm max-w-[calc(100vw-24px)] bg-[#0a0a0f] border border-[#ff1744]/25 rounded-2xl p-5 sm:p-6 shadow-[0_0_35px_rgba(255,23,68,0.15)] space-y-4 my-auto">
                 <div className="flex items-center gap-3">
                   <div
                     className={`p-2.5 rounded-xl ${

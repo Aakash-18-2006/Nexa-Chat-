@@ -132,10 +132,10 @@ export const LandingPage = ({ initialAuthOpen = false, initialAuthMode = 'login'
         >
           {/* Top Floating Navigation Bar */}
           <header
-            className="absolute top-0 left-0 right-0 z-30 w-full max-w-7xl mx-auto px-5 sm:px-6 py-4 sm:py-6 flex items-center justify-between pointer-events-auto"
+            className="absolute top-0 left-0 right-0 z-30 w-full max-w-7xl mx-auto px-4 sm:px-6 py-3.5 sm:py-6 flex items-center justify-between pointer-events-auto pt-[max(0.875rem,env(safe-area-inset-top))]"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#991b1b] via-[#d3121f] to-[#ff1744] flex items-center justify-center shadow-[0_0_20px_rgba(255,23,68,0.45)] border border-[#ff1744]/30">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-[#991b1b] via-[#d3121f] to-[#ff1744] flex items-center justify-center shadow-[0_0_20px_rgba(255,23,68,0.45)] border border-[#ff1744]/30">
                 <MessageSquare className="w-5 h-5 text-white" />
               </div>
               <span className="text-xl font-black tracking-tight text-white drop-shadow-md">NEXA</span>
@@ -143,7 +143,7 @@ export const LandingPage = ({ initialAuthOpen = false, initialAuthMode = 'login'
           </header>
 
           {/* Main Title / Product Identity */}
-          <div className="absolute top-20 sm:top-24 md:top-[14vh] lg:top-[16vh] left-0 right-0 flex items-center justify-center pointer-events-none select-none z-10">
+          <div className="absolute top-20 sm:top-24 md:top-[14vh] lg:top-[16vh] left-0 right-0 flex items-center justify-center pointer-events-none select-none z-10 px-4">
             <span
               style={{
                 fontFamily: "'Postamp Grotesk', 'Oswald', 'Antonio', 'Barlow Condensed', sans-serif",
@@ -162,7 +162,7 @@ export const LandingPage = ({ initialAuthOpen = false, initialAuthMode = 'login'
 
           {/* Floating CTA Overlay */}
           <div
-            className="absolute bottom-16 sm:bottom-20 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center pointer-events-auto"
+            className="absolute bottom-10 sm:bottom-20 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center pointer-events-auto pb-[env(safe-area-inset-bottom)] px-4 max-w-full"
           >
             <button
               id="start-chatting-btn"

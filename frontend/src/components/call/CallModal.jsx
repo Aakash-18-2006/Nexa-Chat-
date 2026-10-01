@@ -31,6 +31,9 @@ export const CallModal = () => {
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play?.().catch((e) => {
+        console.debug('[NEXA Call] Local video play notice:', e?.message);
+      });
     }
   }, [localStream, callState]);
 
@@ -38,9 +41,15 @@ export const CallModal = () => {
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.play?.().catch((e) => {
+        console.debug('[NEXA Call] Remote video play notice:', e?.message);
+      });
     }
     if (remoteAudioRef.current && remoteStream) {
       remoteAudioRef.current.srcObject = remoteStream;
+      remoteAudioRef.current.play?.().catch((e) => {
+        console.debug('[NEXA Call] Remote audio play notice:', e?.message);
+      });
     }
   }, [remoteStream, callState]);
 
@@ -77,7 +86,7 @@ export const CallModal = () => {
       <audio ref={remoteAudioRef} autoPlay playsInline />
 
       {/* Main Container */}
-      <div className="relative w-full h-full max-w-4xl md:max-h-[85vh] md:rounded-3xl bg-[#090a10] border border-white/10 flex flex-col justify-between overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.8)]">
+      <div className="relative w-full h-[100dvh] md:h-full max-w-4xl md:max-h-[85vh] md:rounded-3xl bg-[#090a10] border border-white/10 flex flex-col justify-between overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.8)] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         
         {/* ===================== VIDEO CALL MODE ===================== */}
         {isVideo ? (

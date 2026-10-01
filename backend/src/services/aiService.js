@@ -6,6 +6,7 @@
 class AIService {
   constructor() {
     this.geminiKey = process.env.GEMINI_API_KEY || process.env.AI_API_KEY || '';
+    this.geminiModel = (process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite').trim();
     this.bingConfig = null;
   }
 
@@ -41,7 +42,7 @@ Return ONLY a valid JSON array of 3 strings, with no markdown formatting and no 
 Context:
 ${context}`;
 
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.geminiKey}`, {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${this.geminiModel}:generateContent?key=${this.geminiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -116,7 +117,7 @@ Format as clear markdown bullet points with a short bold topic header.
 Conversation:
 ${context}`;
 
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.geminiKey}`, {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${this.geminiModel}:generateContent?key=${this.geminiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -379,7 +380,7 @@ Text to translate:
 ${trimmedText}`;
 
         const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.geminiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${this.geminiModel}:generateContent?key=${this.geminiKey}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

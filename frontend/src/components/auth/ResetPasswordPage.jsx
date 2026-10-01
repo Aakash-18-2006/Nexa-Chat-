@@ -126,7 +126,7 @@ export const ResetPasswordPage = ({ onNavigateToLogin, onNavigateToForgot }) => 
   };
 
   return (
-    <div className="relative w-full h-[100dvh] overflow-hidden bg-[#05070d] text-slate-100 flex items-center justify-center p-4 select-none">
+    <div className="relative w-full min-h-[100dvh] h-[100dvh] overflow-y-auto bg-[#05070d] text-slate-100 flex items-center justify-center p-3 sm:p-4 select-none">
       {/* Radiant Sunshine Animation for Light Mode */}
       {isLightTheme && <RadiantSunshineBackground />}
 
@@ -134,7 +134,7 @@ export const ResetPasswordPage = ({ onNavigateToLogin, onNavigateToForgot }) => 
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-tr from-[#ff1744]/20 via-[#d3121f]/15 to-[#991b1b]/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Main Card */}
-      <div className="relative w-full max-w-md bg-[#0a0a0f]/95 text-slate-100 rounded-3xl border border-[#ff1744]/25 p-8 shadow-[0_0_35px_rgba(255,23,68,0.12),0_0_65px_rgba(153,27,27,0.08)] backdrop-blur-2xl z-10 animate-in fade-in duration-300">
+      <div className="relative w-full max-w-md max-w-[calc(100vw-24px)] max-h-[calc(100dvh-2rem)] overflow-y-auto bg-[#0a0a0f]/95 text-slate-100 rounded-3xl border border-[#ff1744]/25 p-5 sm:p-8 shadow-[0_0_35px_rgba(255,23,68,0.12),0_0_65px_rgba(153,27,27,0.08)] backdrop-blur-2xl z-10 animate-in fade-in duration-300 my-auto">
         
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center mb-6">

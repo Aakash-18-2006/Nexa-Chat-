@@ -687,6 +687,13 @@ h6,
   letter-spacing: 0.03em;
 }
 
+html {
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -696,9 +703,10 @@ body {
     radial-gradient(circle at 82% 82%, rgba(232, 28, 255, 0.07), transparent 32%),
     radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.03), transparent 45%);
   color: #ffffff;
-  overflow: hidden;
-  height: 100vh;
-  width: 100vw;
+  overflow-x: hidden;
+  min-height: 100dvh;
+  height: 100dvh;
+  width: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -750,12 +758,60 @@ label {
 }
 
 #root {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  min-height: 100dvh;
+  height: 100dvh;
   overflow: hidden;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   background-color: #050505;
+}
+
+/* ==========================================================================
+   Mobile Responsiveness & Safe Area Foundation
+   ========================================================================== */
+.nexa-app-container {
+  width: 100%;
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* Responsive Images Protection */
+.nexa-message-stream img,
+.nexa-chat-window img {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+/* Responsive Message Bubble Wrapping */
+.nexa-message-bubble,
+.nexa-message-sent,
+.nexa-message-received {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Mobile Modal Viewport Constraints */
+.nexa-modal {
+  max-width: calc(100vw - 24px) !important;
+  max-height: calc(100dvh - 32px) !important;
+  margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  .nexa-modal {
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    border-radius: 1.25rem !important;
+  }
+
+  .nexa-modal-body {
+    padding: 1rem !important;
+    max-height: calc(100dvh - 110px) !important;
+  }
 }
 
 /* Custom Cyberpunk Glow Scrollbars */

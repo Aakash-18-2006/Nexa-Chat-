@@ -13,7 +13,7 @@ export const CallProvider = ({ children }) => {
   // Call states: 'idle' | 'calling' | 'ringing' | 'incoming' | 'connecting' | 'connected' | 'ended' | 'declined' | 'missed' | 'failed' | 'unavailable' | 'busy'
   const [callState, setCallState] = useState('idle');
   const [activeCall, setActiveCall] = useState(null); // { callId, conversationId, callType: 'audio'|'video', caller, receiver, isCaller }
-  const [incomingCall, setIncomingCall] = useState(null); // { callId, conversationId, callType, caller, offer }
+  const [incomingCall, setIncomingCall] = useState(null); // { callId, conversationId, callType, caller }
 
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
@@ -26,6 +26,7 @@ export const CallProvider = ({ children }) => {
 
   const durationTimerRef = useRef(null);
   const activeCallRef = useRef(null);
+  const incomingCallRef = useRef(null);
   const callStateRef = useRef('idle');
 
   // Keep refs in sync for event callbacks
@@ -34,10 +35,14 @@ export const CallProvider = ({ children }) => {
   }, [activeCall]);
 
   useEffect(() => {
+    incomingCallRef.current = incomingCall;
+  }, [incomingCall]);
+
+  useEffect(() => {
     callStateRef.current = callState;
   }, [callState]);
 
-  // Duration timer when connected
+  // Duration timer when WebRTC reaches 'connected'
   useEffect(() => {
     if (callState === 'connected') {
       setCallDuration(0);
@@ -59,7 +64,7 @@ export const CallProvider = ({ children }) => {
     };
   }, [callState]);
 
-  // Cleanup all media and state
+  // Comprehensive cleanup of media, peer connections, and audio tones
   const cleanupCall = useCallback((nextState = 'idle', delayReset = 0) => {
     sound.stopRingtone();
     sound.stopOutgoingRing();
@@ -89,34 +94,33 @@ export const CallProvider = ({ children }) => {
     }
   }, []);
 
-  // Initiate an Outgoing Call
+  // Initiate an Outgoing Voice or Video Call
   const startCall = async ({ conversationId, receiver, callType = 'audio' }) => {
     if (!socket || !user || !receiver) return;
 
     if (callState !== 'idle') {
-      console.warn('Call already in progress or ringing');
+      console.warn('[NEXA Call] Call already in progress or ringing');
       return;
     }
 
-    const receiverId = (receiver._id || receiver).toString();
+    const receiverId = (receiver._id || receiver.id || receiver).toString();
+    console.log('[NEXA CALL DEBUG] startCall initiated for target:', receiverId, 'callType:', callType);
 
-    // Verify recipient availability
+    // Verify recipient online status
     const isOnline = onlineUsers.has(receiverId);
     if (!isOnline) {
+      console.log('[NEXA CALL DEBUG] Target user is not in local onlineUsers set:', receiverId);
       setCallState('unavailable');
       setStatusMessage(`${receiver.name || 'User'} is currently offline`);
-      setTimeout(() => {
-        setCallState('idle');
-        setStatusMessage('');
-      }, 3000);
+      cleanupCall('unavailable', 2500);
       return;
     }
 
     try {
       setCallState('calling');
-      setStatusMessage('Starting call...');
+      setStatusMessage('Requesting permissions...');
 
-      // 1. Get user media (microphone & camera if video)
+      // 1. Acquire local microphone / camera permissions
       const stream = await webrtcService.getMediaStream({
         audio: true,
         video: callType === 'video',
@@ -124,52 +128,24 @@ export const CallProvider = ({ children }) => {
       });
       setLocalStream(stream);
 
-      // 2. Initialize Peer Connection
-      webrtcService.createPeerConnection({
-        onRemoteStream: (rStream) => {
-          setRemoteStream(rStream);
-        },
-        onIceCandidate: (candidate) => {
-          if (activeCallRef.current?.callId) {
-            socket.emit('call:signal', {
-              callId: activeCallRef.current.callId,
-              targetUserId: receiverId,
-              signal: { type: 'candidate', candidate }
-            });
-          }
-        },
-        onConnectionStateChange: (state) => {
-          if (state === 'connected') {
-            setCallState('connected');
-            setStatusMessage('');
-            sound.stopOutgoingRing();
-          } else if (state === 'failed' || state === 'disconnected') {
-            setStatusMessage('Connection lost');
-          }
-        }
-      });
-
-      // 3. Create WebRTC offer
-      const offer = await webrtcService.createOffer();
-
-      // 4. Start outgoing ring audio
+      // 2. Play outgoing ringback tone
       sound.startOutgoingRing();
       setStatusMessage('Calling...');
 
-      // 5. Emit initiate to backend socket
+      // 3. Emit initiate to backend socket
       socket.emit(
         'call:initiate',
         {
-          conversationId,
+          targetUserId: receiverId,
           receiverId,
-          callType,
-          offer
+          conversationId,
+          callType
         },
         (response) => {
-          if (response?.error) {
+          if (!response?.success) {
             sound.stopOutgoingRing();
             setCallState('failed');
-            setStatusMessage(response.error);
+            setStatusMessage(response?.message || 'Call failed');
             cleanupCall('failed', 2500);
             return;
           }
@@ -187,19 +163,30 @@ export const CallProvider = ({ children }) => {
         }
       );
     } catch (err) {
-      console.error('Call initiation failed:', err);
+      console.error('[NEXA Call] Media device error on initiate:', err);
       sound.stopOutgoingRing();
       setCallState('failed');
-      setStatusMessage(
-        err.name === 'NotAllowedError'
-          ? 'Microphone / camera permission denied'
-          : 'Could not access media devices'
-      );
-      cleanupCall('failed', 3000);
+
+      const isPermissionDenied =
+        err.name === 'NotAllowedError' ||
+        err.name === 'PermissionDeniedError' ||
+        err.message?.includes('Permission denied');
+
+      if (isPermissionDenied) {
+        setStatusMessage(
+          callType === 'video'
+            ? 'Camera & microphone permission is required for video calls.'
+            : 'Microphone permission is required for voice calls.'
+        );
+      } else {
+        setStatusMessage('Could not access microphone or camera.');
+      }
+
+      cleanupCall('failed', 3500);
     }
   };
 
-  // Accept an Incoming Call
+  // Accept an Incoming Voice or Video Call
   const acceptCall = async () => {
     if (!incomingCall || !socket || !user) return;
 
@@ -207,8 +194,14 @@ export const CallProvider = ({ children }) => {
     setCallState('connecting');
     setStatusMessage('Connecting...');
 
+    const callId = incomingCall.callId;
+    const conversationId = incomingCall.conversationId;
+    const callType = incomingCall.callType || 'audio';
+    const caller = incomingCall.caller;
+    const callerId = (caller._id || caller).toString();
+
     try {
-      const callType = incomingCall.callType || 'audio';
+      // 1. Acquire local microphone / camera
       const stream = await webrtcService.getMediaStream({
         audio: true,
         video: callType === 'video',
@@ -216,63 +209,74 @@ export const CallProvider = ({ children }) => {
       });
       setLocalStream(stream);
 
-      // Create peer connection
+      // 2. Create RTCPeerConnection on receiver side
       webrtcService.createPeerConnection({
         onRemoteStream: (rStream) => {
+          console.log('[NEXA Call] Remote stream received in CallContext');
           setRemoteStream(rStream);
         },
         onIceCandidate: (candidate) => {
           socket.emit('call:signal', {
-            callId: incomingCall.callId,
-            targetUserId: incomingCall.caller._id || incomingCall.caller,
+            callId,
+            targetUserId: callerId,
+            to: callerId,
             signal: { type: 'candidate', candidate }
           });
         },
         onConnectionStateChange: (state) => {
           if (state === 'connected') {
+            sound.playCallConnected();
             setCallState('connected');
             setStatusMessage('');
+          } else if (state === 'failed' || state === 'disconnected') {
+            console.warn('[NEXA Call] Receiver connection state change:', state);
           }
         }
       });
 
-      // Create WebRTC answer
-      const answer = await webrtcService.createAnswer(incomingCall.offer);
-
       setActiveCall({
-        callId: incomingCall.callId,
-        conversationId: incomingCall.conversationId,
-        callType: incomingCall.callType,
-        caller: incomingCall.caller,
+        callId,
+        conversationId,
+        callType,
+        caller,
         receiver: user,
         isCaller: false
       });
 
       setIncomingCall(null);
 
-      // Emit accept to backend
-      socket.emit('call:accept', {
-        callId: incomingCall.callId,
-        answer
+      // 3. Emit accept confirmation to backend socket
+      socket.emit('call:accept', { callId }, (res) => {
+        if (!res?.success) {
+          console.error('[NEXA Call] call:accept ack error:', res?.message);
+        }
       });
-
-      sound.playCallConnected();
-      setCallState('connected');
-      setStatusMessage('');
     } catch (err) {
-      console.error('Failed to accept call:', err);
+      console.error('[NEXA Call] Error accepting call:', err);
       sound.stopRingtone();
       setCallState('failed');
-      setStatusMessage(
-        err.name === 'NotAllowedError'
-          ? 'Microphone / camera permission denied'
-          : 'Could not start media stream'
-      );
+
+      const isPermissionDenied =
+        err.name === 'NotAllowedError' ||
+        err.name === 'PermissionDeniedError' ||
+        err.message?.includes('Permission denied');
+
+      if (isPermissionDenied) {
+        setStatusMessage(
+          callType === 'video'
+            ? 'Camera & microphone permission is required for video calls.'
+            : 'Microphone permission is required for voice calls.'
+        );
+      } else {
+        setStatusMessage('Could not start microphone or camera.');
+      }
+
       socket.emit('call:reject', {
-        callId: incomingCall.callId,
+        callId,
         reason: 'failed'
       });
-      cleanupCall('failed', 2500);
+
+      cleanupCall('failed', 3500);
     }
   };
 
@@ -298,7 +302,7 @@ export const CallProvider = ({ children }) => {
     cleanupCall('idle');
   };
 
-  // End Call (Active or Connected)
+  // End Active or Connected Call
   const endCall = () => {
     if (!activeCall || !socket) {
       cleanupCall('idle');
@@ -309,20 +313,21 @@ export const CallProvider = ({ children }) => {
     sound.playCallEnded();
 
     socket.emit('call:end', {
-      callId: activeCall.callId
+      callId: activeCall.callId,
+      duration: callDuration
     });
 
     cleanupCall('ended', 1500);
   };
 
-  // Toggle Mute Audio
+  // Toggle Microphone Audio Track
   const toggleMute = () => {
     const nextMuted = !isMuted;
     setIsMuted(nextMuted);
     webrtcService.setAudioEnabled(!nextMuted);
   };
 
-  // Toggle Video Camera
+  // Toggle Camera Video Track
   const toggleVideo = () => {
     const nextVideoOff = !isVideoOff;
     setIsVideoOff(nextVideoOff);
@@ -341,8 +346,10 @@ export const CallProvider = ({ children }) => {
 
     // 1. Incoming Call Invitation
     const handleIncomingCall = (data) => {
+      console.log('[NEXA CALL DEBUG] call:incoming received:', data);
       if (callStateRef.current !== 'idle') {
-        // User is busy on another call
+        // User is currently busy on another active call
+        console.log('[NEXA CALL DEBUG] User busy, rejecting incoming call:', data.callId);
         socket.emit('call:reject', {
           callId: data.callId,
           reason: 'busy'
@@ -353,6 +360,9 @@ export const CallProvider = ({ children }) => {
       setIncomingCall(data);
       setCallState('incoming');
       sound.startRingtone();
+
+      // Emit ringing acknowledgment back to caller
+      socket.emit('call:ringing', { callId: data.callId });
     };
 
     // 2. Caller receives Ringing confirmation
@@ -363,27 +373,63 @@ export const CallProvider = ({ children }) => {
       }
     };
 
-    // 3. Caller receives Acceptance & Answer from Recipient
-    const handleCallAccepted = async ({ callId, answer }) => {
+    // 3. Caller receives Acceptance: Initiate WebRTC Offer creation
+    const handleCallAccepted = async ({ callId, connectedAt }) => {
+      console.log('[NEXA Call] Received call:accepted for callId:', callId);
       sound.stopOutgoingRing();
       setCallState('connecting');
       setStatusMessage('Connecting...');
 
+      const currentActive = activeCallRef.current;
+      if (!currentActive || currentActive.callId !== callId) return;
+
+      const receiverId = (currentActive.receiver._id || currentActive.receiver).toString();
+
       try {
-        await webrtcService.handleAnswer(answer);
-        sound.playCallConnected();
-        setCallState('connected');
-        setStatusMessage('');
+        // Create Caller's RTCPeerConnection
+        webrtcService.createPeerConnection({
+          onRemoteStream: (rStream) => {
+            console.log('[NEXA Call] Remote stream received by Caller');
+            setRemoteStream(rStream);
+          },
+          onIceCandidate: (candidate) => {
+            socket.emit('call:signal', {
+              callId,
+              targetUserId: receiverId,
+              to: receiverId,
+              signal: { type: 'candidate', candidate }
+            });
+          },
+          onConnectionStateChange: (state) => {
+            if (state === 'connected') {
+              sound.playCallConnected();
+              setCallState('connected');
+              setStatusMessage('');
+            } else if (state === 'failed' || state === 'disconnected') {
+              console.warn('[NEXA Call] Caller connection state change:', state);
+            }
+          }
+        });
+
+        // Create WebRTC Offer and transmit to Receiver
+        const offer = await webrtcService.createOffer();
+        socket.emit('call:signal', {
+          callId,
+          targetUserId: receiverId,
+          to: receiverId,
+          signal: { type: 'offer', offer }
+        });
       } catch (err) {
-        console.error('Error handling answer:', err);
+        console.error('[NEXA Call] Error creating WebRTC offer on call acceptance:', err);
         setCallState('failed');
         setStatusMessage('Signaling error');
-        cleanupCall('failed', 2000);
+        cleanupCall('failed', 2500);
       }
     };
 
-    // 4. Call Rejected / Declined
+    // 4. Call Rejected / Declined / Busy / Timeout
     const handleCallRejected = ({ callId, reason }) => {
+      console.log('[NEXA Call] Call rejected:', reason);
       sound.stopOutgoingRing();
       sound.stopRingtone();
 
@@ -398,6 +444,9 @@ export const CallProvider = ({ children }) => {
       } else if (reason === 'unavailable') {
         msg = 'User is unavailable';
         nextState = 'unavailable';
+      } else if (reason === 'failed') {
+        msg = 'Call failed to connect';
+        nextState = 'failed';
       }
 
       setStatusMessage(msg);
@@ -407,36 +456,59 @@ export const CallProvider = ({ children }) => {
     // 5. Caller Cancelled before answer
     const handleCallCancelled = ({ callId }) => {
       sound.stopRingtone();
-      if (incomingCall?.callId === callId || activeCallRef.current?.callId === callId) {
+      if (incomingCallRef.current?.callId === callId || activeCallRef.current?.callId === callId) {
         setStatusMessage('Call cancelled');
         cleanupCall('missed', 1500);
       }
     };
 
-    // 6. WebRTC Signaling Data (ICE candidates / renegotiation)
-    const handleCallSignal = async ({ callId, signal }) => {
-      if (signal?.type === 'candidate') {
-        await webrtcService.handleCandidate(signal.candidate);
-      } else if (signal?.type === 'offer') {
-        // renegotiation if needed
-      } else if (signal?.type === 'answer') {
-        await webrtcService.handleAnswer(signal.answer);
+    // 6. WebRTC Signaling Data Exchange (Offer, Answer, ICE Candidates)
+    const handleCallSignal = async ({ callId, senderId, signal }) => {
+      if (!signal) return;
+
+      const currentActive = activeCallRef.current;
+      const currentCallId = currentActive?.callId;
+      if (currentCallId && currentCallId !== callId) return;
+
+      try {
+        if (signal.type === 'offer') {
+          // Receiver handles incoming offer and creates answer
+          console.log('[NEXA Call] Processing incoming WebRTC offer');
+          await webrtcService.handleOffer(signal.offer);
+          const answer = await webrtcService.createAnswer();
+          socket.emit('call:signal', {
+            callId,
+            targetUserId: senderId,
+            to: senderId,
+            signal: { type: 'answer', answer }
+          });
+        } else if (signal.type === 'answer') {
+          // Caller handles incoming answer
+          console.log('[NEXA Call] Processing incoming WebRTC answer');
+          await webrtcService.handleAnswer(signal.answer);
+        } else if (signal.type === 'candidate' && signal.candidate) {
+          // Either peer handles ICE candidate
+          await webrtcService.handleCandidate(signal.candidate);
+        }
+      } catch (err) {
+        console.error('[NEXA Call] Error handling WebRTC signal:', err);
       }
     };
 
     // 7. Call Ended by remote peer
-    const handleCallEnded = ({ callId }) => {
+    const handleCallEnded = ({ callId, duration, reason }) => {
+      console.log('[NEXA Call] Received call:ended for callId:', callId);
       sound.stopOutgoingRing();
       sound.stopRingtone();
       sound.playCallEnded();
-      setStatusMessage('Call ended');
+      setStatusMessage(reason === 'peer_disconnected' ? 'User disconnected' : 'Call ended');
       cleanupCall('ended', 1500);
     };
 
     // 8. User is Busy
     const handleCallBusy = ({ message }) => {
       sound.stopOutgoingRing();
-      setStatusMessage(message || 'User is currently in another call');
+      setStatusMessage(message || 'User is currently on another call');
       cleanupCall('busy', 2500);
     };
 
@@ -455,6 +527,19 @@ export const CallProvider = ({ children }) => {
       cleanupCall('missed', 2000);
     };
 
+    // Direct WebRTC event aliases
+    const handleDirectOffer = ({ callId, senderId, offer }) => {
+      handleCallSignal({ callId, senderId, signal: { type: 'offer', offer } });
+    };
+
+    const handleDirectAnswer = ({ callId, senderId, answer }) => {
+      handleCallSignal({ callId, senderId, signal: { type: 'answer', answer } });
+    };
+
+    const handleDirectCandidate = ({ callId, senderId, candidate }) => {
+      handleCallSignal({ callId, senderId, signal: { type: 'candidate', candidate } });
+    };
+
     socket.on('call:incoming', handleIncomingCall);
     socket.on('call:ringing', handleCallRinging);
     socket.on('call:accepted', handleCallAccepted);
@@ -465,6 +550,10 @@ export const CallProvider = ({ children }) => {
     socket.on('call:busy', handleCallBusy);
     socket.on('call:unavailable', handleCallUnavailable);
     socket.on('call:timeout', handleCallTimeout);
+
+    socket.on('webrtc-offer', handleDirectOffer);
+    socket.on('webrtc-answer', handleDirectAnswer);
+    socket.on('ice-candidate', handleDirectCandidate);
 
     return () => {
       socket.off('call:incoming', handleIncomingCall);
@@ -477,8 +566,12 @@ export const CallProvider = ({ children }) => {
       socket.off('call:busy', handleCallBusy);
       socket.off('call:unavailable', handleCallUnavailable);
       socket.off('call:timeout', handleCallTimeout);
+
+      socket.off('webrtc-offer', handleDirectOffer);
+      socket.off('webrtc-answer', handleDirectAnswer);
+      socket.off('ice-candidate', handleDirectCandidate);
     };
-  }, [socket, incomingCall, cleanupCall]);
+  }, [socket, cleanupCall]);
 
   return (
     <CallContext.Provider

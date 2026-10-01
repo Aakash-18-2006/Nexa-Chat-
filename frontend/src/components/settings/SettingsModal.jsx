@@ -653,7 +653,7 @@ export const SettingsModal = ({ isOpen, onClose, initialTab = 'account' }) => {
     <Modal isOpen={isOpen} onClose={onClose} title="NEXA Settings" maxWidth="max-w-2xl">
       <div className="flex flex-col sm:flex-row gap-6">
         {/* Sidebar Nav */}
-        <div className="sm:w-48 flex sm:flex-col gap-1 border-b sm:border-b-0 sm:border-r border-[#ff1744]/15 pb-3 sm:pb-0 sm:pr-3 text-xs select-none flex-shrink-0">
+        <div className="sm:w-48 flex sm:flex-col gap-1 border-b sm:border-b-0 sm:border-r border-[#ff1744]/15 pb-3 sm:pb-0 sm:pr-3 text-xs select-none flex-shrink-0 overflow-x-auto scrollbar-none">
           {[
             { id: 'account', label: 'Account', icon: User },
             { id: 'privacy', label: 'Privacy', icon: Shield },
@@ -670,13 +670,13 @@ export const SettingsModal = ({ isOpen, onClose, initialTab = 'account' }) => {
                   setSavedMsg('');
                   setErrorMsg('');
                 }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl font-medium transition-all cursor-pointer text-left ${
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl font-medium transition-all cursor-pointer text-left whitespace-nowrap sm:whitespace-normal flex-shrink-0 sm:flex-shrink ${
                   activeTab === item.id
                     ? 'bg-gradient-to-r from-[#ff1744] via-[#d3121f] to-[#991b1b] text-white shadow-[0_0_12px_rgba(255,23,68,0.35)]'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className="w-3.5 h-3.5 shrink-0" />
                 <span>{item.label}</span>
               </button>
             );
@@ -684,7 +684,7 @@ export const SettingsModal = ({ isOpen, onClose, initialTab = 'account' }) => {
         </div>
 
         {/* Content Panel */}
-        <div className="flex-1 min-w-0 max-h-[520px] overflow-y-auto pr-1">
+        <div className="flex-1 min-w-0 max-h-[calc(100dvh-200px)] sm:max-h-[520px] overflow-y-auto pr-1">
           {savedMsg && (
             <div className="mb-4 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-1.5 animate-in fade-in duration-150">
               <Check className="w-3.5 h-3.5 shrink-0" />
@@ -1541,8 +1541,8 @@ export const SettingsModal = ({ isOpen, onClose, initialTab = 'account' }) => {
       {/* MODAL: ENABLE 2FA SETUP (STEPS) */}
       {/* ========================================================= */}
       {enable2FAModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-[#0a0a0f] border border-[#ff1744]/30 rounded-3xl p-6 shadow-[0_0_40px_rgba(255,23,68,0.2)] space-y-4">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md max-w-[calc(100vw-24px)] max-h-[calc(100dvh-2rem)] overflow-y-auto my-auto bg-[#0a0a0f] border border-[#ff1744]/30 rounded-3xl p-5 sm:p-6 shadow-[0_0_40px_rgba(255,23,68,0.2)] space-y-4">
             
             {/* Step 1: Password Re-authentication */}
             {enable2FAStep === 'password' && (
@@ -1744,8 +1744,8 @@ export const SettingsModal = ({ isOpen, onClose, initialTab = 'account' }) => {
       {/* MODAL: DISABLE 2FA */}
       {/* ========================================================= */}
       {disable2FAModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-[#0a0a0f] border border-rose-500/30 rounded-3xl p-6 shadow-[0_0_40px_rgba(244,63,94,0.15)] space-y-4">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-sm max-w-[calc(100vw-24px)] max-h-[calc(100dvh-2rem)] overflow-y-auto my-auto bg-[#0a0a0f] border border-rose-500/30 rounded-3xl p-5 sm:p-6 shadow-[0_0_40px_rgba(244,63,94,0.15)] space-y-4">
             <div className="text-center">
               <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-400 border border-rose-500/30 flex items-center justify-center mx-auto mb-3">
                 <AlertTriangle className="w-6 h-6" />
@@ -1813,8 +1813,8 @@ export const SettingsModal = ({ isOpen, onClose, initialTab = 'account' }) => {
       {/* MODAL: REGENERATE RECOVERY CODES */}
       {/* ========================================================= */}
       {regenModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-[#0a0a0f] border border-[#ff1744]/30 rounded-3xl p-6 shadow-[0_0_40px_rgba(255,23,68,0.15)] space-y-4">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-sm max-w-[calc(100vw-24px)] max-h-[calc(100dvh-2rem)] overflow-y-auto my-auto bg-[#0a0a0f] border border-[#ff1744]/30 rounded-3xl p-5 sm:p-6 shadow-[0_0_40px_rgba(255,23,68,0.15)] space-y-4">
             <div className="text-center">
               <div className="w-12 h-12 rounded-2xl bg-[#ff1744]/15 text-[#ff1744] border border-[#ff1744]/30 flex items-center justify-center mx-auto mb-3">
                 <RefreshCw className="w-6 h-6" />
@@ -1871,8 +1871,8 @@ export const SettingsModal = ({ isOpen, onClose, initialTab = 'account' }) => {
       {/* MODAL: CONFIRM LOG OUT OF ALL DEVICES */}
       {/* ========================================================= */}
       {logoutAllConfirm && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-[#0a0a0f] border border-rose-500/30 rounded-3xl p-6 shadow-[0_0_40px_rgba(244,63,94,0.2)] space-y-4">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-sm max-w-[calc(100vw-24px)] max-h-[calc(100dvh-2rem)] overflow-y-auto my-auto bg-[#0a0a0f] border border-rose-500/30 rounded-3xl p-5 sm:p-6 shadow-[0_0_40px_rgba(244,63,94,0.2)] space-y-4">
             <div className="text-center">
               <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-400 border border-rose-500/30 flex items-center justify-center mx-auto mb-3">
                 <LogOut className="w-6 h-6" />
@@ -1907,8 +1907,8 @@ export const SettingsModal = ({ isOpen, onClose, initialTab = 'account' }) => {
 
       {/* Confirmation Dialog for Unblocking */}
       {confirmUnblockUser && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-sm bg-[#0a0a0f] border border-[#ff1744]/25 rounded-2xl p-6 shadow-[0_0_35px_rgba(255,23,68,0.15)] space-y-4">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-sm max-w-[calc(100vw-24px)] max-h-[calc(100dvh-2rem)] overflow-y-auto my-auto bg-[#0a0a0f] border border-[#ff1744]/25 rounded-2xl p-5 sm:p-6 shadow-[0_0_35px_rgba(255,23,68,0.15)] space-y-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-[#ff1744]/15 text-[#ff1744] border border-[#ff1744]/25 flex-shrink-0">
                 <ShieldCheck className="w-5 h-5" />

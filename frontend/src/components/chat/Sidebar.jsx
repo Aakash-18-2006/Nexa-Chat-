@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
 import { useSocket } from '../../context/SocketContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { ConversationItem } from './ConversationItem';
 import { Avatar } from '../ui/Avatar';
 import { Modal } from '../ui/Modal';
@@ -10,6 +11,8 @@ import { AnimatedGlowButton } from '../ui/AnimatedGlowButton';
 import { chatApi } from '../../api/endpoints';
 import {
   MessageSquare,
+  MessageSquarePlus,
+  Bell,
   Search,
   Users,
   Clock,
@@ -45,6 +48,7 @@ export const Sidebar = ({
     fetchConversations
   } = useChat();
   const { onlineUsers } = useSocket();
+  const { unreadCount = 0, toggleNotifications } = useNotifications() || {};
 
   const [localSearch, setLocalSearch] = useState('');
 
@@ -263,12 +267,67 @@ export const Sidebar = ({
     <>
       <aside className="nexa-sidebar w-full md:w-80 lg:w-96 h-full bg-[#08080d] border-r border-white/10 flex flex-col flex-shrink-0 select-none">
         {/* Top Brand Bar */}
-        <div className="nexa-sidebar-brand px-5 py-4 flex items-center justify-between border-b border-white/10 min-h-[69px] bg-white/[0.01]">
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-white leading-none">NEXA</h1>
-            <span className="text-xs bg-gradient-to-r from-[#ff1744] via-[#d3121f] to-[#ff2a55] bg-clip-text text-transparent font-semibold tracking-wide uppercase">
-              Conversations
-            </span>
+        <div className="nexa-sidebar-brand px-4 sm:px-5 py-3.5 sm:py-4 flex items-center justify-between border-b border-white/10 min-h-[60px] sm:min-h-[69px] bg-white/[0.01]">
+          <div className="flex items-center gap-2.5">
+            {/* Mobile avatar / profile button */}
+            <button
+              type="button"
+              onClick={onOpenMyProfile}
+              className="md:hidden flex-shrink-0 cursor-pointer focus:outline-none"
+              title="My Profile"
+            >
+              <Avatar user={user} size="sm" showOnline={false} />
+            </button>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight text-white leading-none">NEXA</h1>
+              <span className="text-xs bg-gradient-to-r from-[#ff1744] via-[#d3121f] to-[#ff2a55] bg-clip-text text-transparent font-semibold tracking-wide uppercase">
+                Conversations
+              </span>
+            </div>
+          </div>
+
+          {/* Mobile Action Icons (hidden on desktop because NavigationRail provides them) */}
+          <div className="flex md:hidden items-center gap-0.5">
+            <button
+              type="button"
+              onClick={onOpenNewChat}
+              className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              title="New Direct Chat"
+            >
+              <MessageSquarePlus className="w-5 h-5 text-[#ff1744]" />
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenSearch}
+              className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              title="Search"
+            >
+              <Search className="w-5 h-5 text-slate-300" />
+            </button>
+
+            <button
+              type="button"
+              onClick={toggleNotifications}
+              className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer relative"
+              title="Notifications"
+            >
+              <Bell className="w-5 h-5 text-slate-300" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-[#ff1744] text-[9px] font-bold text-white flex items-center justify-center border border-black shadow-[0_0_8px_#ff1744]">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onOpenSettings && onOpenSettings('account')}
+              className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              title="Settings"
+            >
+              <Settings className="w-5 h-5 text-slate-300" />
+            </button>
           </div>
         </div>
 

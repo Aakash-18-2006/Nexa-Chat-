@@ -12,8 +12,8 @@ export const IncomingCallModal = () => {
   const isVideo = incomingCall.callType === 'video';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn select-none">
-      <div className="relative w-full max-w-sm rounded-3xl bg-[#0c0d14]/95 border border-[#ff1744]/20 p-6 sm:p-8 flex flex-col items-center text-center shadow-[0_0_50px_rgba(255,23,68,0.25)] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/80 backdrop-blur-md animate-fadeIn select-none">
+      <div className="relative w-full max-w-sm max-w-[calc(100vw-24px)] max-h-[calc(100dvh-2rem)] overflow-y-auto my-auto rounded-3xl bg-[#0c0d14]/95 border border-[#ff1744]/20 p-5 sm:p-8 flex flex-col items-center text-center shadow-[0_0_50px_rgba(255,23,68,0.25)]">
         {/* Ambient background glow */}
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-gradient-to-tr from-[#ff1744] via-[#d3121f] to-[#991b1b] rounded-full blur-3xl opacity-20 pointer-events-none" />
 

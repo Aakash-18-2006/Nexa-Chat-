@@ -211,7 +211,7 @@ export const MessageItem = React.memo(({
       )}
 
       {/* Message Content Container */}
-      <div className={`relative max-w-[85%] sm:max-w-[70%] md:max-w-[60%]`}>
+      <div className={`relative max-w-[88%] sm:max-w-[70%] md:max-w-[60%] min-w-0`}>
         {/* Sender Name in group */}
         {!isOwn && showAvatar && (
           <span className="block text-[11px] font-semibold text-[#ff1744] mb-1 pl-1">
@@ -241,7 +241,7 @@ export const MessageItem = React.memo(({
 
         {/* Bubble */}
         <div
-          className={`relative px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-all ${
+          className={`relative px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-all min-w-0 ${
             message.isDeleted
               ? 'bg-[#0d0d14] text-slate-400 italic border border-white/5'
               : isOwn
@@ -274,7 +274,7 @@ export const MessageItem = React.memo(({
                         alt={att.name || 'Image'}
                         loading="lazy"
                         decoding="async"
-                        className="max-h-72 w-auto object-cover rounded-xl"
+                        className="max-h-72 max-w-full w-auto object-contain rounded-xl"
                       />
                     </a>
                   );
@@ -297,7 +297,7 @@ export const MessageItem = React.memo(({
                           <Play className="w-4 h-4 ml-0.5" />
                         )}
                       </button>
-                      <div className="flex-1 min-w-[120px]">
+                      <div className="flex-1 min-w-[80px] sm:min-w-[120px]">
                         <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-gradient-to-r from-[#ff1744] to-[#991b1b] transition-all"
@@ -347,7 +347,7 @@ export const MessageItem = React.memo(({
 
           {/* Text Content */}
           {message.content && (
-            <p className="whitespace-pre-wrap break-words leading-relaxed text-[13.5px]">
+            <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-relaxed text-[13.5px]">
               {message.content}
             </p>
           )}

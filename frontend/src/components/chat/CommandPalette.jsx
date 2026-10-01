@@ -145,19 +145,19 @@ export const CommandPalette = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-10 sm:pt-20 p-3 sm:p-4 overflow-y-auto">
       <div className="fixed inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative w-full max-w-xl bg-[#0a0a0f]/95 border border-[#ff1744]/25 rounded-2xl shadow-[0_0_35px_rgba(255,23,68,0.12),0_0_65px_rgba(153,27,27,0.06)] backdrop-blur-2xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150">
+      <div className="relative w-full max-w-xl max-w-[calc(100vw-24px)] max-h-[calc(100dvh-4rem)] bg-[#0a0a0f]/95 border border-[#ff1744]/25 rounded-2xl shadow-[0_0_35px_rgba(255,23,68,0.12),0_0_65px_rgba(153,27,27,0.06)] backdrop-blur-2xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150 flex flex-col">
         {/* Search Input Bar */}
-        <div className="flex items-center px-4 py-3.5 border-b border-[#ff1744]/15 gap-3">
+        <div className="flex items-center px-4 py-3.5 border-b border-[#ff1744]/15 gap-3 shrink-0">
           <Command className="w-5 h-5 text-[#ff1744] flex-shrink-0" />
           <input
             type="text"
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Type a command or search action... (e.g. 'theme', 'group')"
+            placeholder="Type a command or search action..."
             className="w-full bg-transparent text-sm text-white placeholder:text-slate-500 focus:outline-none"
           />
           <kbd className="px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 border border-white/10 text-slate-400">
@@ -166,7 +166,7 @@ export const CommandPalette = ({
         </div>
 
         {/* Command Items List */}
-        <div className="max-h-80 overflow-y-auto p-2 space-y-1">
+        <div className="max-h-[calc(100dvh-10rem)] sm:max-h-80 overflow-y-auto p-2 space-y-1">
           {filtered.length > 0 ? (
             filtered.map((action, idx) => {
               const Icon = action.icon;
