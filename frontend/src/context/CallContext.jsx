@@ -146,6 +146,19 @@ export const CallProvider = ({ children }) => {
       sound.startOutgoingRing();
       setStatusMessage('Calling...');
 
+      // Store preliminary active call before emitting so synchronous callbacks and incoming call:accepted have context
+      const pendingActive = {
+        callId: null,
+        conversationId,
+        callType,
+        caller: user,
+        receiver,
+        receiverId,
+        isCaller: true
+      };
+      activeCallRef.current = pendingActive;
+      setActiveCall(pendingActive);
+
       // 3. Emit initiate to backend socket
       socket.emit(
         'call:initiate',
@@ -165,14 +178,17 @@ export const CallProvider = ({ children }) => {
           }
 
           if (response?.callId) {
-            setActiveCall({
+            const confirmedActive = {
               callId: response.callId,
               conversationId,
               callType,
               caller: user,
               receiver,
+              receiverId,
               isCaller: true
-            });
+            };
+            activeCallRef.current = confirmedActive;
+            setActiveCall(confirmedActive);
           }
         }
       );
@@ -212,7 +228,7 @@ export const CallProvider = ({ children }) => {
     const conversationId = incomingCall.conversationId;
     const callType = incomingCall.callType || 'audio';
     const caller = incomingCall.caller;
-    const callerId = (caller._id || caller).toString();
+    const callerId = (caller._id || caller.id || caller).toString();
 
     try {
       // 1. Acquire local microphone / camera
@@ -256,14 +272,18 @@ export const CallProvider = ({ children }) => {
         }
       });
 
-      setActiveCall({
+      const activeData = {
         callId,
         conversationId,
         callType,
         caller,
+        callerId,
         receiver: user,
+        receiverId: (user._id || user.id || user).toString(),
         isCaller: false
-      });
+      };
+      activeCallRef.current = activeData;
+      setActiveCall(activeData);
 
       setIncomingCall(null);
 
@@ -406,7 +426,14 @@ export const CallProvider = ({ children }) => {
       sound.stopOutgoingRing();
 
       const currentActive = activeCallRef.current;
-      if (!currentActive || currentActive.callId !== callId) return;
+      if (currentActive && !currentActive.callId) {
+        currentActive.callId = callId;
+      }
+
+      if (!currentActive || currentActive.callId !== callId) {
+        console.warn('[NEXA Call] handleCallAccepted: activeCall mismatch or missing. active:', currentActive, 'expected callId:', callId);
+        return;
+      }
 
       // CRITICAL FIX: Only the CALLER initiates the WebRTC offer.
       // The receiver already created their peer connection in acceptCall() and is waiting for the offer.
@@ -418,9 +445,10 @@ export const CallProvider = ({ children }) => {
       setCallState('connecting');
       setStatusMessage('Connecting...');
 
-      const receiverId = (currentActive.receiver._id || currentActive.receiver).toString();
+      const receiverId = (currentActive.receiverId || currentActive.receiver?._id || currentActive.receiver?.id || currentActive.receiver).toString();
 
       try {
+        console.log('[NEXA WebRTC] Creating offer');
         // Create Caller's RTCPeerConnection
         webrtcService.createPeerConnection({
           onRemoteStream: (rStream) => {
@@ -455,7 +483,9 @@ export const CallProvider = ({ children }) => {
         });
 
         // Create WebRTC Offer and transmit to Receiver
+        console.log('[NEXA WebRTC] Sending offer');
         const offer = await webrtcService.createOffer();
+        console.log('[NEXA WebRTC] Offer emitted');
         socket.emit('call:signal', {
           callId,
           targetUserId: receiverId,
@@ -514,14 +544,18 @@ export const CallProvider = ({ children }) => {
 
       const currentActive = activeCallRef.current;
       const currentCallId = currentActive?.callId;
-      if (currentCallId && currentCallId !== callId) return;
+      if (currentCallId && currentCallId !== callId) {
+        console.warn('[NEXA Call] handleCallSignal ignored: callId mismatch:', callId, 'current:', currentCallId);
+        return;
+      }
 
       try {
         if (signal.type === 'offer') {
-          // Receiver handles incoming offer and creates answer
-          console.log('[NEXA Call] Processing incoming WebRTC offer');
+          console.log('[NEXA WebRTC] Offer received');
+          console.log('[NEXA WebRTC] Creating answer');
           await webrtcService.handleOffer(signal.offer);
           const answer = await webrtcService.createAnswer();
+          console.log('[NEXA WebRTC] Answer emitted');
           socket.emit('call:signal', {
             callId,
             targetUserId: senderId,
@@ -529,11 +563,9 @@ export const CallProvider = ({ children }) => {
             signal: { type: 'answer', answer }
           });
         } else if (signal.type === 'answer') {
-          // Caller handles incoming answer
-          console.log('[NEXA Call] Processing incoming WebRTC answer');
+          console.log('[NEXA WebRTC] Answer received');
           await webrtcService.handleAnswer(signal.answer);
         } else if (signal.type === 'candidate' && signal.candidate) {
-          // Either peer handles ICE candidate
           await webrtcService.handleCandidate(signal.candidate);
         }
       } catch (err) {

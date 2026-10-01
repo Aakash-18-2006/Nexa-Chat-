@@ -773,9 +773,15 @@ const initSocketHandlers = (io) => {
     socket.on('call:signal', ({ callId, targetUserId, to, signal }) => {
       const recipientId = (targetUserId || to)?.toString();
       if (!callId || !recipientId || !signal) return;
+      const senderId = socket.user._id.toString();
+      if (signal.type === 'offer') {
+        console.log(`[NEXA SIGNAL] Offer caller -> receiver (${senderId} -> ${recipientId}) for call: ${callId}`);
+      } else if (signal.type === 'answer') {
+        console.log(`[NEXA SIGNAL] Answer receiver -> caller (${senderId} -> ${recipientId}) for call: ${callId}`);
+      }
       io.to(`user:${recipientId}`).emit('call:signal', {
         callId,
-        senderId: socket.user._id.toString(),
+        senderId,
         signal
       });
     });
