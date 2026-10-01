@@ -1,6 +1,50 @@
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 const aiService = require('../services/aiService');
+const geminiService = require('../services/geminiService');
+
+// @desc    Chat with Nexa AI assistant (Google Gemini Free Tier only)
+// @route   POST /api/ai/chat
+const chatWithAI = async (req, res) => {
+  try {
+    const { message, history } = req.body;
+
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message cannot be empty.',
+        code: 'AI_INVALID_INPUT'
+      });
+    }
+
+    if (message.trim().length > 4000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message is too long. Please keep questions under 4,000 characters.',
+        code: 'AI_MESSAGE_TOO_LONG'
+      });
+    }
+
+    const reply = await geminiService.generateChatResponse({
+      message: message.trim(),
+      history: Array.isArray(history) ? history : []
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: reply
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    const code = error.code || 'AI_ERROR';
+
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Nexa AI was unable to generate a response. Please try again.',
+      code
+    });
+  }
+};
 
 // @desc    Get 3 AI reply suggestions
 // @route   POST /api/ai/suggest-replies
@@ -92,6 +136,7 @@ const translateText = async (req, res) => {
 };
 
 module.exports = {
+  chatWithAI,
   getSuggestions,
   summarizeChat,
   translateText

@@ -1,12 +1,11 @@
 /**
  * AI Service for NEXA
- * Supports Google Gemini API, OpenAI API, and an intelligent contextual fallback engine
+ * Uses Google Gemini Free Tier API with clean contextual synthesis
  */
 
 class AIService {
   constructor() {
     this.geminiKey = process.env.GEMINI_API_KEY || process.env.AI_API_KEY || '';
-    this.openaiKey = process.env.OPENAI_API_KEY || '';
     this.bingConfig = null;
   }
 
@@ -399,42 +398,7 @@ ${trimmedText}`;
       }
     }
 
-    // Tier 2: Try OpenAI API if key is present
-    if (this.openaiKey) {
-      try {
-        const fromName = SUPPORTED_LANGUAGES[from] || from;
-        const toName = SUPPORTED_LANGUAGES[to] || to;
-        const res = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.openaiKey}`
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              {
-                role: 'system',
-                content: `You are a professional translator. Translate from ${fromName} (${from}) into ${toName} (${to}). Return ONLY the direct translated text with no quotes or explanations.`
-              },
-              { role: 'user', content: trimmedText }
-            ],
-            temperature: 0.2
-          }),
-          signal: AbortSignal.timeout(8000)
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          const translated = data.choices?.[0]?.message?.content?.trim();
-          if (translated) return translated;
-        }
-      } catch (err) {
-        console.warn('[AI Service] OpenAI translation failed, using high-speed translation engine:', err.message);
-      }
-    }
-
-    // Tier 3: High-speed Google Translation Engine
+    // Tier 2: Free Translation Engine
     try {
       const translated = await this.translateWithGoogle(trimmedText, from, to);
       if (translated && translated.trim().length > 0) {

@@ -54,7 +54,7 @@ const ChatDashboard = () => {
   const [addMembersOpen, setAddMembersOpen] = useState(false);
   const [tempRoomOpen, setTempRoomOpen] = useState(false);
   const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
-  const [aiInitialTab, setAiInitialTab] = useState('summary');
+  const [aiInitialTab, setAiInitialTab] = useState('chat');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState('account');
   const [myProfileOpen, setMyProfileOpen] = useState(false);
@@ -120,7 +120,7 @@ const ChatDashboard = () => {
           ) : (
             <ChatWindow
               onBack={handleMobileBack}
-              onOpenAI={(tab = 'summary') => {
+              onOpenAI={(tab = 'chat') => {
                 setAiInitialTab(tab);
                 setAiAssistantOpen(true);
               }}

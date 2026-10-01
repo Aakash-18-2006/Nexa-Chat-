@@ -66,6 +66,17 @@ export const ChatWindow = ({ onBack, onOpenAI, onOpenAddMember }) => {
 
   const speedDialOptions = [
     {
+      id: 'chat',
+      label: 'Nexa AI Chat',
+      icon: Sparkles,
+      action: () => {
+        setIsSpeedDialOpen(false);
+        onOpenAI?.('chat');
+      },
+      delayOpen: '0.15s',
+      delayClose: '0s'
+    },
+    {
       id: 'summary',
       label: 'Summarize Chat',
       icon: FileText,
@@ -74,7 +85,7 @@ export const ChatWindow = ({ onBack, onOpenAI, onOpenAddMember }) => {
         onOpenAI?.('summary');
       },
       delayOpen: '0.10s',
-      delayClose: '0s'
+      delayClose: '0.05s'
     },
     {
       id: 'translator',
@@ -85,7 +96,7 @@ export const ChatWindow = ({ onBack, onOpenAI, onOpenAddMember }) => {
         onOpenAI?.('translator');
       },
       delayOpen: '0.05s',
-      delayClose: '0.05s'
+      delayClose: '0.10s'
     }
   ];
 

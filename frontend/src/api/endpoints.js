@@ -75,6 +75,7 @@ export const tempRoomApi = {
 };
 
 export const aiApi = {
+  chat: (data) => api.post('/ai/chat', data),
   getSuggestions: (conversationId) => api.post('/ai/suggest-replies', { conversationId }),
   summarizeChat: (conversationId) => api.post('/ai/summarize', { conversationId }),
   translateText: (data) => api.post('/ai/translate', data)
