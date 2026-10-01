@@ -228,8 +228,14 @@ export const CallProvider = ({ children }) => {
             sound.playCallConnected();
             setCallState('connected');
             setStatusMessage('');
-          } else if (state === 'failed' || state === 'disconnected') {
-            console.warn('[NEXA Call] Receiver connection state change:', state);
+          } else if (state === 'failed') {
+            console.warn('[NEXA Call] Receiver connection state failed');
+            setStatusMessage('Connection failed');
+            cleanupCall('failed', 2500);
+          } else if (state === 'disconnected') {
+            console.warn('[NEXA Call] Receiver peer disconnected');
+            setStatusMessage('User disconnected');
+            cleanupCall('ended', 2000);
           }
         }
       });
@@ -377,11 +383,19 @@ export const CallProvider = ({ children }) => {
     const handleCallAccepted = async ({ callId, connectedAt }) => {
       console.log('[NEXA Call] Received call:accepted for callId:', callId);
       sound.stopOutgoingRing();
-      setCallState('connecting');
-      setStatusMessage('Connecting...');
 
       const currentActive = activeCallRef.current;
       if (!currentActive || currentActive.callId !== callId) return;
+
+      // CRITICAL FIX: Only the CALLER initiates the WebRTC offer.
+      // The receiver already created their peer connection in acceptCall() and is waiting for the offer.
+      if (!currentActive.isCaller) {
+        console.log('[NEXA Call] Receiver acknowledged call acceptance, waiting for incoming offer');
+        return;
+      }
+
+      setCallState('connecting');
+      setStatusMessage('Connecting...');
 
       const receiverId = (currentActive.receiver._id || currentActive.receiver).toString();
 
@@ -405,8 +419,14 @@ export const CallProvider = ({ children }) => {
               sound.playCallConnected();
               setCallState('connected');
               setStatusMessage('');
-            } else if (state === 'failed' || state === 'disconnected') {
-              console.warn('[NEXA Call] Caller connection state change:', state);
+            } else if (state === 'failed') {
+              console.warn('[NEXA Call] Caller connection state failed');
+              setStatusMessage('Connection failed');
+              cleanupCall('failed', 2500);
+            } else if (state === 'disconnected') {
+              console.warn('[NEXA Call] Caller peer disconnected');
+              setStatusMessage('User disconnected');
+              cleanupCall('ended', 2000);
             }
           }
         });

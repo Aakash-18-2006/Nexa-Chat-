@@ -32,7 +32,7 @@ export const isLocalDev = () => {
 
 /**
  * Returns the backend origin (without /api suffix and without trailing slash).
- * Production default: https://nexa-backend.onrender.com
+ * Production default: https://nexa-backend-o5n3.onrender.com
  */
 export const getBackendOrigin = () => {
   const envUrl = import.meta.env.VITE_API_URL;
@@ -43,12 +43,12 @@ export const getBackendOrigin = () => {
     return typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
   }
   // Production default for Capacitor Android APK & Vercel production web deployment
-  return 'https://nexa-backend.onrender.com';
+  return 'https://nexa-backend-o5n3.onrender.com';
 };
 
 /**
  * Returns the REST API Base URL (always ending with /api).
- * Production Android / Vercel: https://nexa-backend.onrender.com/api
+ * Production Android / Vercel: https://nexa-backend-o5n3.onrender.com/api
  * Local Vite Dev: /api
  */
 export const getApiBaseUrl = () => {
@@ -61,12 +61,12 @@ export const getApiBaseUrl = () => {
     return '/api';
   }
   // Production default for Capacitor Android APK & Vercel production web deployment
-  return 'https://nexa-backend.onrender.com/api';
+  return 'https://nexa-backend-o5n3.onrender.com/api';
 };
 
 /**
  * Returns the Socket.IO server connection URL (origin only, never ending in /api).
- * Production Android / Vercel: https://nexa-backend.onrender.com
+ * Production Android / Vercel: https://nexa-backend-o5n3.onrender.com
  * Local Vite Dev: window.location.origin (e.g. http://localhost:5173)
  */
 export const getSocketServerUrl = () => {

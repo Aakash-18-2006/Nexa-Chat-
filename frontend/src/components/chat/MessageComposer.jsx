@@ -123,14 +123,24 @@ export const MessageComposer = () => {
     setShowAttachmentMenu(false);
     setUploadProgress(0);
 
+    console.log('[Upload] started');
+    console.log('[Upload] file selected');
+    console.log('[Upload] filename:', file.name);
+    console.log('[Upload] size:', file.size);
+    console.log('[Upload] MIME type:', file.type || 'application/octet-stream');
+    console.log('[Upload] endpoint: /api/media/upload');
+
     try {
       const res = await mediaApi.uploadFile(file, (percent) => {
         setUploadProgress(percent);
       });
 
-      if (res.data.success) {
+      console.log('[Upload] response status:', res.status);
+      console.log('[Upload] response received');
+
+      if (res.data?.success) {
         const uploaded = res.data.file;
-        const isImage = file.type.startsWith('image/');
+        const isImage = file.type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.name);
         const msgType = isImage ? 'image' : 'file';
 
         sendMessage({
@@ -140,8 +150,8 @@ export const MessageComposer = () => {
         });
       }
     } catch (err) {
-      console.error('File upload failed:', err);
-      alert('Upload failed: ' + (err.response?.data?.message || err.message));
+      console.error('[Upload] failed:', err?.message || err);
+      alert('Upload failed: ' + (err.response?.data?.message || err.message || 'Network error'));
     } finally {
       setUploadProgress(null);
       if (fileInputRef.current) fileInputRef.current.value = '';

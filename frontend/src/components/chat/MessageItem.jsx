@@ -3,6 +3,7 @@ import { Avatar } from '../ui/Avatar';
 import { useCall } from '../../context/CallContext';
 import { formatTime, formatFileSize, formatDuration } from '../../utils/formatters';
 import { resolveMediaUrl } from '../../utils/urlConfig';
+import { openOrDownloadFile } from '../../utils/fileHandler';
 import {
   Check,
   CheckCheck,
@@ -318,12 +319,32 @@ export const MessageItem = React.memo(({
                 return (
                   <div
                     key={idx}
-                    className="flex items-center justify-between p-2.5 rounded-xl bg-black/25 border border-white/10 gap-3"
+                    onClick={() =>
+                      openOrDownloadFile({
+                        url: att.url,
+                        name: att.name,
+                        mimeType: att.mimeType
+                      })
+                    }
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-black/25 border border-white/10 gap-3 cursor-pointer hover:bg-black/40 hover:border-white/20 transition-all group/file select-none"
+                    title={`Open ${att.name || 'document'}`}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openOrDownloadFile({
+                          url: att.url,
+                          name: att.name,
+                          mimeType: att.mimeType
+                        });
+                      }
+                    }}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <FileText className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                    <div className="flex items-center gap-2.5 min-w-0 pointer-events-none">
+                      <FileText className="w-5 h-5 text-amber-400 flex-shrink-0 group-hover/file:scale-110 transition-transform" />
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold truncate text-white">
+                        <p className="text-xs font-semibold truncate text-white group-hover/file:text-[#ff1744] transition-colors">
                           {att.name}
                         </p>
                         <p className="text-[10px] text-slate-400">
@@ -331,16 +352,22 @@ export const MessageItem = React.memo(({
                         </p>
                       </div>
                     </div>
-                    <a
-                      href={mediaUrl}
-                      download={att.name}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
-                      title="Download"
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openOrDownloadFile({
+                          url: att.url,
+                          name: att.name,
+                          mimeType: att.mimeType
+                        });
+                      }}
+                      className="p-1.5 rounded-lg bg-white/10 hover:bg-[#ff1744] text-white transition-colors cursor-pointer flex-shrink-0"
+                      title="Download file"
+                      aria-label="Download file"
                     >
                       <Download className="w-4 h-4" />
-                    </a>
+                    </button>
                   </div>
                 );
               })}

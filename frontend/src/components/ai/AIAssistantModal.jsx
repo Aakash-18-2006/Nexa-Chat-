@@ -114,8 +114,12 @@ export const AIAssistantModal = ({ isOpen, onClose, conversation, initialTab = '
   // ---------------------------------------------------------
   // Chat Handlers
   // ---------------------------------------------------------
-  const handleSendChatMessage = async (promptToSend) => {
-    const text = (promptToSend || chatInput).trim();
+  const handleSendChatMessage = async (promptToSend, e) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
+    const promptText = typeof promptToSend === 'string' ? promptToSend : '';
+    const text = (promptText || chatInput).trim();
     if (!text || loadingChat) return;
 
     setChatError('');
@@ -127,10 +131,14 @@ export const AIAssistantModal = ({ isOpen, onClose, conversation, initialTab = '
 
     const nextMessages = [...chatMessages, userMessage];
     setChatMessages(nextMessages);
-    if (!promptToSend) {
+    if (!promptText) {
       setChatInput('');
     }
     setLoadingChat(true);
+
+    console.log('[Gemini] request started');
+    console.log('[Gemini] endpoint: /api/ai/chat');
+    console.log('[Gemini] authorization present:', Boolean(localStorage.getItem('nexa_token')));
 
     try {
       // Build safe recent history (max 20 messages) excluding welcome greeting
@@ -148,6 +156,9 @@ export const AIAssistantModal = ({ isOpen, onClose, conversation, initialTab = '
         history: historyPayload.slice(0, -1)
       });
 
+      console.log('[Gemini] response status:', res?.status);
+      console.log('[Gemini] response received');
+
       if (res?.data?.success && res.data.message) {
         const aiMessage = {
           id: `model_${Date.now()}`,
@@ -159,7 +170,7 @@ export const AIAssistantModal = ({ isOpen, onClose, conversation, initialTab = '
         setChatError(res?.data?.message || 'Nexa AI was unable to generate a response. Please try again.');
       }
     } catch (err) {
-      console.error('Nexa AI Chat error:', err);
+      console.error('[Gemini] request failed:', err?.message || err);
       const serverCode = err.response?.data?.code;
       const serverMessage = err.response?.data?.message;
 
@@ -177,6 +188,8 @@ export const AIAssistantModal = ({ isOpen, onClose, conversation, initialTab = '
         setChatError('Google AI service is temporarily unavailable. Please try again shortly.');
       } else if (serverCode === 'AI_MESSAGE_TOO_LONG') {
         setChatError('Message is too long. Please keep questions under 4,000 characters.');
+      } else if (err.response?.status === 401) {
+        setChatError('Session expired or unauthorized for AI request. Please log in again.');
       } else if (!navigator.onLine || err.code === 'ERR_NETWORK') {
         setChatError('Network error. Please check your internet connection.');
       } else {
@@ -205,13 +218,18 @@ export const AIAssistantModal = ({ isOpen, onClose, conversation, initialTab = '
   const handleGenerateSummary = async () => {
     if (!conversation?._id) return;
     setLoadingSummary(true);
+    console.log('[Gemini] request started');
+    console.log('[Gemini] endpoint: /api/ai/summarize');
+    console.log('[Gemini] authorization present:', Boolean(localStorage.getItem('nexa_token')));
     try {
       const res = await aiApi.summarizeChat(conversation._id);
+      console.log('[Gemini] response status:', res?.status);
+      console.log('[Gemini] response received');
       if (res.data?.success) {
         setSummary(res.data.summary);
       }
     } catch (err) {
-      console.error('AI summary error:', err);
+      console.error('[Gemini] request failed:', err?.message || err);
       setSummary('Unable to generate summary. Please ensure there are messages in this chat.');
     } finally {
       setLoadingSummary(false);
@@ -240,7 +258,9 @@ export const AIAssistantModal = ({ isOpen, onClose, conversation, initialTab = '
   };
 
   const handleTranslate = async (e) => {
-    e?.preventDefault?.();
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
     if (loadingTranslation) return;
 
     const trimmedInput = inputText.trim();
@@ -259,12 +279,19 @@ export const AIAssistantModal = ({ isOpen, onClose, conversation, initialTab = '
     setLoadingTranslation(true);
     setTranslationError('');
 
+    console.log('[Gemini] request started');
+    console.log('[Gemini] endpoint: /api/ai/translate');
+    console.log('[Gemini] authorization present:', Boolean(localStorage.getItem('nexa_token')));
+
     try {
       const res = await aiApi.translateText({
         text: trimmedInput,
         sourceLang,
         targetLang
       });
+
+      console.log('[Gemini] response status:', res?.status);
+      console.log('[Gemini] response received');
 
       if (res?.data?.success && typeof res.data.translatedText === 'string') {
         const result = res.data.translatedText;
@@ -277,7 +304,7 @@ export const AIAssistantModal = ({ isOpen, onClose, conversation, initialTab = '
         setTranslationError(res?.data?.message || 'Translation failed. Please try again.');
       }
     } catch (err) {
-      console.error('Translation error:', err);
+      console.error('[Gemini] request failed:', err?.message || err);
       const serverMessage = err.response?.data?.message;
       if (err.response?.status === 400 && serverMessage) {
         setTranslationError(serverMessage);
@@ -501,7 +528,7 @@ export const AIAssistantModal = ({ isOpen, onClose, conversation, initialTab = '
 
           {/* Bottom Chat Input Form */}
           <form
-            onSubmit={(e) => handleSendChatMessage()}
+            onSubmit={(e) => handleSendChatMessage('', e)}
             className="p-3 bg-[#050505] border-t border-white/5 flex flex-col gap-1.5"
           >
             <div className="flex items-center gap-2">
@@ -512,7 +539,7 @@ export const AIAssistantModal = ({ isOpen, onClose, conversation, initialTab = '
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    handleSendChatMessage();
+                    handleSendChatMessage('', e);
                   }
                 }}
                 disabled={loadingChat}

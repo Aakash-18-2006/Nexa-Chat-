@@ -15,31 +15,49 @@ class WebRTCService {
   }
 
   /**
-   * Centralized ICE Servers Configuration (Google STUN + Optional TURN)
+   * Centralized ICE Servers Configuration (Google STUN + Metered STUN + Metered TURN)
    */
   getIceServers() {
     const iceServers = [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' }
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun.relay.metered.ca:80' }
     ];
 
-    // Optional custom STUN server
+    // Optional custom STUN server (single or comma-separated list)
     const customStun = import.meta.env.VITE_STUN_SERVER || import.meta.env.VITE_STUN_URL;
-    if (customStun) {
-      iceServers.unshift({ urls: customStun });
+    if (customStun && typeof customStun === 'string') {
+      const stunUrls = customStun.split(',').map((u) => u.trim()).filter(Boolean);
+      if (stunUrls.length > 0) {
+        iceServers.unshift({ urls: stunUrls.length === 1 ? stunUrls[0] : stunUrls });
+      }
     }
 
-    // Optional TURN servers for restrictive NAT/firewall environments
-    const turnUrl = import.meta.env.VITE_TURN_URL || import.meta.env.VITE_TURN_SERVER;
+    // Metered / Configured TURN servers for restrictive NAT/firewall environments
+    const turnUrlsRaw = import.meta.env.VITE_TURN_URL || import.meta.env.VITE_TURN_SERVER;
     const turnUsername = import.meta.env.VITE_TURN_USERNAME;
     const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL;
 
-    if (turnUrl) {
-      const turnConfig = { urls: turnUrl };
-      if (turnUsername) turnConfig.username = turnUsername;
-      if (turnCredential) turnConfig.credential = turnCredential;
-      iceServers.push(turnConfig);
+    if (turnUsername && turnCredential) {
+      let turnUrls = [];
+      if (turnUrlsRaw && typeof turnUrlsRaw === 'string') {
+        turnUrls = turnUrlsRaw.split(',').map((u) => u.trim()).filter(Boolean);
+      }
+      // If no custom TURN URLs specified, use standard Metered TURN URL suite
+      if (turnUrls.length === 0) {
+        turnUrls = [
+          'turn:global.relay.metered.ca:80',
+          'turn:global.relay.metered.ca:80?transport=tcp',
+          'turn:global.relay.metered.ca:443',
+          'turns:global.relay.metered.ca:443?transport=tcp'
+        ];
+      }
+      iceServers.push({
+        urls: turnUrls,
+        username: turnUsername,
+        credential: turnCredential
+      });
     }
 
     return iceServers;
@@ -99,7 +117,7 @@ class WebRTCService {
       iceCandidatePoolSize: 10
     };
 
-    console.log('[NEXA WebRTC] Creating RTCPeerConnection with config:', config);
+    console.log('[NEXA WebRTC] Creating RTCPeerConnection');
     this.peerConnection = new RTCPeerConnection(config);
     this.remoteStream = new MediaStream();
 
@@ -131,36 +149,52 @@ class WebRTCService {
       }
     };
 
-    // Local ICE candidate generation handler
+    // Local ICE candidate generation handler with safe candidate type logging
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log('[NEXA WebRTC] ICE candidate generated');
+        const candidateStr = event.candidate.candidate || '';
+        const typeMatch = event.candidate.type || candidateStr.match(/typ\s+(\w+)/i)?.[1] || 'host';
+        console.log(`[WebRTC] ICE candidate type: ${typeMatch}`);
+        if (typeMatch === 'relay') {
+          console.log('[WebRTC] TURN relay candidate detected');
+        }
         if (this.onIceCandidateCallback) {
           this.onIceCandidateCallback(event.candidate);
         }
       }
     };
 
-    // Connection state monitor
-    this.peerConnection.onconnectionstatechange = () => {
-      const state = this.peerConnection?.connectionState;
-      console.log(`[NEXA WebRTC] Connection state: ${state}`);
-      if (this.onConnectionStateChangeCallback) {
-        this.onConnectionStateChangeCallback(state);
+    // Evaluate connection and ICE states together with safe diagnostics
+    const evaluateConnectionStatus = () => {
+      if (!this.peerConnection) return;
+      const connState = this.peerConnection.connectionState;
+      const iceState = this.peerConnection.iceConnectionState;
+
+      if (iceState) {
+        console.log(`[WebRTC] ICE state: ${iceState}`);
+      }
+
+      if (connState === 'connected' || iceState === 'connected' || iceState === 'completed') {
+        if (this.onConnectionStateChangeCallback) {
+          this.onConnectionStateChangeCallback('connected');
+        }
+      } else if (connState === 'failed' || iceState === 'failed') {
+        if (this.onConnectionStateChangeCallback) {
+          this.onConnectionStateChangeCallback('failed');
+        }
+      } else if (connState === 'disconnected' || iceState === 'disconnected') {
+        if (this.onConnectionStateChangeCallback) {
+          this.onConnectionStateChangeCallback('disconnected');
+        }
+      } else if (connState === 'closed' || iceState === 'closed') {
+        if (this.onConnectionStateChangeCallback) {
+          this.onConnectionStateChangeCallback('closed');
+        }
       }
     };
 
-    // ICE connection state monitor (fallback for older browser engines)
-    this.peerConnection.oniceconnectionstatechange = () => {
-      const iceState = this.peerConnection?.iceConnectionState;
-      console.log(`[NEXA WebRTC] ICE connection state: ${iceState}`);
-      if (
-        this.onConnectionStateChangeCallback &&
-        (!this.peerConnection?.connectionState || this.peerConnection?.connectionState === 'new')
-      ) {
-        this.onConnectionStateChangeCallback(iceState);
-      }
-    };
+    this.peerConnection.onconnectionstatechange = evaluateConnectionStatus;
+    this.peerConnection.oniceconnectionstatechange = evaluateConnectionStatus;
 
     return this.peerConnection;
   }
@@ -186,6 +220,18 @@ class WebRTCService {
   async handleOffer(remoteOffer) {
     if (!this.peerConnection) throw new Error('PeerConnection not initialized');
     console.log('[NEXA WebRTC] Received offer, setting remote description');
+
+    if (this.peerConnection.signalingState === 'closed') return;
+
+    if (
+      this.peerConnection.remoteDescription &&
+      this.peerConnection.remoteDescription.type === 'offer' &&
+      this.peerConnection.remoteDescription.sdp === remoteOffer.sdp
+    ) {
+      console.log('[NEXA WebRTC] Duplicate offer received, skipping setRemoteDescription');
+      return;
+    }
+
     await this.peerConnection.setRemoteDescription(new RTCSessionDescription(remoteOffer));
     await this.processQueuedCandidates();
   }
@@ -206,11 +252,13 @@ class WebRTCService {
    * Handle incoming remote WebRTC Answer
    */
   async handleAnswer(remoteAnswer) {
-    if (!this.peerConnection) return;
-    console.log('[NEXA WebRTC] Received answer, setting remote description');
-    if (this.peerConnection.signalingState !== 'stable') {
+    if (!this.peerConnection || this.peerConnection.signalingState === 'closed') return;
+    console.log('[NEXA WebRTC] Received answer, checking signaling state:', this.peerConnection.signalingState);
+    if (this.peerConnection.signalingState === 'have-local-offer') {
       await this.peerConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
       await this.processQueuedCandidates();
+    } else {
+      console.warn(`[NEXA WebRTC] Ignoring answer received in signaling state: ${this.peerConnection.signalingState}`);
     }
   }
 

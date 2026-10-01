@@ -13,7 +13,7 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('nexa_token');
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    config.headers.Authorization = `Bearer ${token.trim()}`;
   }
   return config;
 });
@@ -23,8 +23,9 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Don't auto-redirect if checking auth status
-      if (!error.config?.url?.includes('/auth/me')) {
+      const url = error.config?.url || '';
+      // Never clear authentication session on AI or feature errors
+      if (url.includes('/auth/') && !url.includes('/auth/me')) {
         localStorage.removeItem('nexa_token');
       }
     }

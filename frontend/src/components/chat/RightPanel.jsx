@@ -7,6 +7,7 @@ import { Avatar } from '../ui/Avatar';
 import { UserProfileModal } from '../profile/UserProfileModal';
 import { formatDate, formatFileSize } from '../../utils/formatters';
 import { resolveMediaUrl } from '../../utils/urlConfig';
+import { openOrDownloadFile } from '../../utils/fileHandler';
 import AnimatedSendIcon from '../common/AnimatedSendIcon';
 import {
   X,
@@ -914,16 +915,35 @@ export const RightPanel = ({ conversation, onClose, onOpenAddMember }) => {
             ) : (
               <div className="space-y-2">
                 {files.map((file, i) => {
-                  const fileUrl = resolveMediaUrl(file.url);
                   return (
                     <div
                       key={i}
-                      className="flex items-center justify-between p-3 rounded-xl bg-[#0a0a0f] border border-[#ff1744]/15 text-xs shadow-[0_0_12px_rgba(255,23,68,0.02)]"
+                      onClick={() =>
+                        openOrDownloadFile({
+                          url: file.url,
+                          name: file.name,
+                          mimeType: file.mimeType
+                        })
+                      }
+                      className="flex items-center justify-between p-3 rounded-xl bg-[#0a0a0f] border border-[#ff1744]/15 text-xs shadow-[0_0_12px_rgba(255,23,68,0.02)] cursor-pointer hover:bg-black/50 hover:border-[#ff1744]/30 transition-all select-none group/sharedfile"
+                      title={`Open ${file.name || 'document'}`}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openOrDownloadFile({
+                            url: file.url,
+                            name: file.name,
+                            mimeType: file.mimeType
+                          });
+                        }
+                      }}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <FileText className="w-4 h-4 text-[#ff1744] flex-shrink-0" />
+                      <div className="flex items-center gap-2.5 min-w-0 pointer-events-none">
+                        <FileText className="w-4 h-4 text-[#ff1744] flex-shrink-0 group-hover/sharedfile:scale-110 transition-transform" />
                         <div className="truncate">
-                          <span className="font-medium text-white truncate block">
+                          <span className="font-medium text-white truncate block group-hover/sharedfile:text-[#ff1744] transition-colors">
                             {file.name}
                           </span>
                           <span className="text-[10px] text-slate-400">
@@ -931,15 +951,22 @@ export const RightPanel = ({ conversation, onClose, onOpenAddMember }) => {
                           </span>
                         </div>
                       </div>
-                      <a
-                        href={fileUrl}
-                        download={file.name}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-[#ff1744]/20 text-white cursor-pointer transition-colors"
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openOrDownloadFile({
+                            url: file.url,
+                            name: file.name,
+                            mimeType: file.mimeType
+                          });
+                        }}
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-[#ff1744] text-white cursor-pointer transition-colors flex-shrink-0"
+                        title="Download"
+                        aria-label="Download"
                       >
                         <Download className="w-3.5 h-3.5" />
-                      </a>
+                      </button>
                     </div>
                   );
                 })}

@@ -52,6 +52,7 @@ const defaultOrigins = [
   'http://127.0.0.1:5173',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
+  'https://nexa-backend-o5n3.onrender.com',
   'https://nexa-backend.onrender.com'
 ];
 
@@ -121,15 +122,16 @@ const io = new Server(server, {
 initSocketHandlers(io);
 app.set('io', io);
 
-// Middleware
+// CORS Middleware - placed first to handle all cross-origin and preflight OPTIONS requests immediately
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
+// Security Headers
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' }
   })
 );
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
@@ -155,7 +157,16 @@ app.use((req, res, next) => {
 app.use(morgan('dev'));
 
 // Static uploads directory
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use(
+  '/uploads',
+  express.static(path.join(__dirname, '../uploads'), {
+    maxAge: '1d',
+    setHeaders: (res) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    }
+  })
+);
 
 // Rate limit authentication routes
 const authLimiter = rateLimit({
