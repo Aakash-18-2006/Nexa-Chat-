@@ -272,7 +272,9 @@ const MainApp = () => {
     currentPath === '/download-android' ||
     currentPath.startsWith('/download-android/') ||
     currentPath === '/apk' ||
-    currentPath.startsWith('/apk/');
+    currentPath.startsWith('/apk/') ||
+    currentPath === '/app' ||
+    currentPath.startsWith('/app/');
 
   if (isDownloadRoute) {
     return (
