@@ -217,8 +217,8 @@ const MainApp = () => {
   if (loading) {
     return (
       <div className="min-h-screen w-full bg-[#050505] flex flex-col items-center justify-center text-white select-none">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#ff1744] via-[#d3121f] to-[#991b1b] flex items-center justify-center shadow-[0_0_25px_rgba(255,23,68,0.4)] animate-pulse mb-4">
-          <span className="text-xl font-black text-white">N</span>
+        <div className="w-16 h-16 rounded-2xl bg-[#0a0a0f] flex items-center justify-center shadow-[0_0_25px_rgba(255,23,68,0.4)] border border-[#ff1744]/30 overflow-hidden p-2 animate-pulse mb-4">
+          <img src="/assets/nexa-logo.png" alt="NEXA" className="w-full h-full object-contain" />
         </div>
         <p className="text-xs font-semibold text-[#ff1744] tracking-wider uppercase">Loading NEXA...</p>
       </div>
@@ -329,8 +329,8 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen w-full bg-[#05070d] flex flex-col items-center justify-center p-6 text-slate-100 select-none">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#ff1744] via-[#d3121f] to-[#991b1b] flex items-center justify-center shadow-[0_0_30px_rgba(255,23,68,0.4)] mb-6">
-            <span className="text-2xl font-black text-white">N</span>
+          <div className="w-16 h-16 rounded-2xl bg-[#0a0a0f] flex items-center justify-center shadow-[0_0_30px_rgba(255,23,68,0.4)] border border-[#ff1744]/30 overflow-hidden p-2 mb-6">
+            <img src="/assets/nexa-logo.png" alt="NEXA" className="w-full h-full object-contain" />
           </div>
           <h2 className="text-2xl font-bold tracking-tight mb-2">Something went wrong</h2>
           <p className="text-sm text-slate-400 max-w-md text-center mb-6">

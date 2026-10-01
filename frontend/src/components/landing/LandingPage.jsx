@@ -135,8 +135,8 @@ export const LandingPage = ({ initialAuthOpen = false, initialAuthMode = 'login'
             className="absolute top-0 left-0 right-0 z-30 w-full max-w-7xl mx-auto px-4 sm:px-6 py-3.5 sm:py-6 flex items-center justify-between pointer-events-auto pt-[max(0.875rem,env(safe-area-inset-top))]"
           >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-[#991b1b] via-[#d3121f] to-[#ff1744] flex items-center justify-center shadow-[0_0_20px_rgba(255,23,68,0.45)] border border-[#ff1744]/30">
-                <MessageSquare className="w-5 h-5 text-white" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl overflow-hidden shadow-[0_0_20px_rgba(255,23,68,0.45)] border border-[#ff1744]/30 flex items-center justify-center bg-black">
+                <img src="/assets/nexa-logo.png" alt="NEXA Logo" className="w-full h-full object-contain" />
               </div>
               <span className="text-xl font-black tracking-tight text-white drop-shadow-md">NEXA</span>
             </div>

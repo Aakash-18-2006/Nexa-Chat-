@@ -53,8 +53,8 @@ export const DownloadPage = ({ onNavigateHome }) => {
               <ArrowLeft className="w-5 h-5 text-[#ff1744]" />
             </button>
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#991b1b] via-[#d3121f] to-[#ff1744] flex items-center justify-center shadow-[0_0_15px_rgba(255,23,68,0.4)] border border-[#ff1744]/30">
-                <span className="font-black text-white text-base">N</span>
+              <div className="w-9 h-9 rounded-xl overflow-hidden shadow-[0_0_15px_rgba(255,23,68,0.4)] border border-[#ff1744]/30 flex items-center justify-center bg-black">
+                <img src="/assets/nexa-logo.png" alt="NEXA" className="w-full h-full object-contain" />
               </div>
               <div className="flex flex-col">
                 <span className="font-black text-lg tracking-wider text-white">NEXA</span>

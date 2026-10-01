@@ -20,10 +20,10 @@ export const NavigationRail = ({
       <div className="flex flex-col items-center gap-6">
         <div
           onClick={() => onChangeSection('all')}
-          className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#991b1b] via-[#d3121f] to-[#ff1744] flex items-center justify-center shadow-[0_0_20px_rgba(255,23,68,0.45)] border border-[#ff1744]/30 cursor-pointer hover:scale-105 transition-all duration-300"
+          className="w-10 h-10 rounded-2xl overflow-hidden shadow-[0_0_20px_rgba(255,23,68,0.45)] border border-[#ff1744]/30 cursor-pointer hover:scale-105 transition-all duration-300 flex items-center justify-center bg-black"
           title="NEXA Real-Time"
         >
-          <span className="font-black text-white text-xl tracking-tighter">N</span>
+          <img src="/assets/nexa-logo.png" alt="NEXA" className="w-full h-full object-contain" />
         </div>
 
         {/* Navigation Item Icons */}

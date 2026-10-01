@@ -138,8 +138,8 @@ export const ResetPasswordPage = ({ onNavigateToLogin, onNavigateToForgot }) => 
         
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#991b1b] via-[#d3121f] to-[#ff1744] flex items-center justify-center shadow-[0_0_20px_rgba(255,23,68,0.4)] border border-[#ff1744]/30 mb-3">
-            <MessageSquare className="w-6 h-6 text-white" />
+          <div className="w-12 h-12 rounded-2xl bg-[#0a0a0f] flex items-center justify-center shadow-[0_0_20px_rgba(255,23,68,0.4)] border border-[#ff1744]/30 mb-3 overflow-hidden p-1.5">
+            <img src="/assets/nexa-logo.png" alt="NEXA" className="w-full h-full object-contain" />
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-white">Reset Password</h2>
           <p className="text-sm text-slate-400 mt-1">
