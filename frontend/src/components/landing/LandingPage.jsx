@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import EtchedAccretion from '@/components/ui/etched-accretion';
 import { PlanetTransition } from '@/components/ui/PlanetTransition';
 import { AuthModal } from '../auth/AuthModal';
-import { MessageSquare, ArrowRight } from 'lucide-react';
+import { MessageSquare, ArrowRight, Smartphone } from 'lucide-react';
 
 export const LandingPage = ({ initialAuthOpen = false, initialAuthMode = 'login' }) => {
   const [authModalOpen, setAuthModalOpen] = useState(initialAuthOpen);
@@ -140,6 +140,15 @@ export const LandingPage = ({ initialAuthOpen = false, initialAuthMode = 'login'
               </div>
               <span className="text-xl font-black tracking-tight text-white drop-shadow-md">NEXA</span>
             </div>
+
+            <a
+              href="/download"
+              className="flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-red-500/40 transition-all shadow-sm backdrop-blur-md"
+              title="Download NEXA for Android"
+            >
+              <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />
+              <span>Get Android App</span>
+            </a>
           </header>
 
           {/* Main Title / Product Identity */}

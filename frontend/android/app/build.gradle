@@ -16,10 +16,33 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            def storeFilePath = project.findProperty('NEXA_RELEASE_STORE_FILE') ?: System.getenv('NEXA_RELEASE_STORE_FILE') ?: ''
+            def storePasswordVal = project.findProperty('NEXA_RELEASE_STORE_PASSWORD') ?: System.getenv('NEXA_RELEASE_STORE_PASSWORD') ?: ''
+            def keyAliasVal = project.findProperty('NEXA_RELEASE_KEY_ALIAS') ?: System.getenv('NEXA_RELEASE_KEY_ALIAS') ?: 'nexa'
+            def keyPasswordVal = project.findProperty('NEXA_RELEASE_KEY_PASSWORD') ?: System.getenv('NEXA_RELEASE_KEY_PASSWORD') ?: storePasswordVal
+
+            if (storeFilePath && file(storeFilePath).exists()) {
+                storeFile file(storeFilePath)
+                storePassword storePasswordVal
+                keyAlias keyAliasVal
+                keyPassword keyPasswordVal
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+    applicationVariants.all { variant ->
+        if (variant.buildType.name == 'release') {
+            variant.outputs.all { output ->
+                outputFileName = "NEXA-Android.apk"
+            }
         }
     }
 }

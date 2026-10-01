@@ -11,6 +11,8 @@
 *.key
 *.cert
 *.crt
+*.keystore
+*.jks
 id_rsa
 id_rsa.pub
 

@@ -18,6 +18,7 @@ import { RedBlackPulseBackground } from './components/ui/RedBlackPulseBackground
 import { PainThemeBackground } from './components/ui/PainThemeBackground';
 import { ResetPasswordPage } from './components/auth/ResetPasswordPage';
 import { VerifyEmailPage } from './components/auth/VerifyEmailPage';
+import { DownloadPage } from './components/download/DownloadPage';
 
 // Modals
 import { NewChatModal } from './components/chat/NewChatModal';
@@ -259,6 +260,24 @@ const MainApp = () => {
           setCurrentPath('/');
           setReturnToLogin(true);
           setReturnToForgot(false);
+        }}
+      />
+    );
+  }
+
+  // Check if user is navigating to download route
+  const isDownloadRoute =
+    currentPath.startsWith('/download') ||
+    currentPath.startsWith('/download-android') ||
+    currentPath.startsWith('/apk') ||
+    currentPath.startsWith('/app');
+
+  if (isDownloadRoute) {
+    return (
+      <DownloadPage
+        onNavigateHome={() => {
+          window.history.replaceState({}, '', '/');
+          setCurrentPath('/');
         }}
       />
     );

@@ -3,8 +3,13 @@ package com.nexa.chat;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.View;
+import android.view.Window;
 import android.webkit.DownloadListener;
 import android.webkit.WebView;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -13,6 +18,26 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
 
         try {
+            Window window = getWindow();
+            if (window != null) {
+                window.setStatusBarColor(0xFF050505);
+                window.setNavigationBarColor(0xFF050505);
+            }
+
+            // Apply system window insets (status bar, notch / display cutout, navigation bar) directly to content root view
+            View contentView = findViewById(android.R.id.content);
+            if (contentView != null) {
+                ViewCompat.setOnApplyWindowInsetsListener(contentView, (v, windowInsets) -> {
+                    Insets insets = windowInsets.getInsets(
+                        WindowInsetsCompat.Type.statusBars() | 
+                        WindowInsetsCompat.Type.displayCutout() |
+                        WindowInsetsCompat.Type.navigationBars()
+                    );
+                    v.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+                    return WindowInsetsCompat.CONSUMED;
+                });
+            }
+
             if (this.getBridge() != null) {
                 WebView webView = this.getBridge().getWebView();
                 if (webView != null) {
