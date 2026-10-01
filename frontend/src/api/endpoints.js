@@ -32,7 +32,7 @@ export const accountApi = {
 };
 
 export const userApi = {
-  searchUsers: (q) => api.get(`/users/search?q=${encodeURIComponent(q)}`),
+  searchUsers: (q, config = {}) => api.get(`/users/search?q=${encodeURIComponent(q)}`, config),
   getProfile: (id) => api.get(`/users/${id}`),
   checkUsername: (username) => api.get(`/users/check-username?username=${encodeURIComponent(username)}`)
 };
@@ -47,7 +47,8 @@ export const chatApi = {
   pinMessage: (conversationId, messageId) => api.post(`/conversations/${conversationId}/pin/${messageId}`),
   unpinMessage: (conversationId, messageId) => api.delete(`/conversations/${conversationId}/pin/${messageId}`),
 
-  getMessages: (conversationId, page = 1) => api.get(`/messages/${conversationId}?page=${page}`),
+  getMessages: (conversationId, page = 1, limit = 40) =>
+    api.get(`/messages/${conversationId}?page=${page}&limit=${limit}`),
   sendMessage: (data) => api.post('/messages', data),
   editMessage: (id, content) => api.put(`/messages/${id}`, { content }),
   deleteMessage: (id) => api.delete(`/messages/${id}`),
@@ -80,7 +81,7 @@ export const aiApi = {
 };
 
 export const searchApi = {
-  globalSearch: (q) => api.get(`/search?q=${encodeURIComponent(q)}`)
+  globalSearch: (q, config = {}) => api.get(`/search?q=${encodeURIComponent(q)}`, config)
 };
 
 export const notificationApi = {

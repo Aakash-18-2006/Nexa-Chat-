@@ -26,19 +26,23 @@ const getMessages = async (req, res) => {
     }
 
     const messages = await Message.find({ conversation: conversationId })
+      .select('content type attachments replyTo reactions readBy deliveredTo isEdited isDeleted isPinned createdAt conversation sender callDetails')
       .populate('sender', 'name username avatar')
       .populate({
         path: 'replyTo',
+        select: 'content sender type attachments',
         populate: { path: 'sender', select: 'name username avatar' }
       })
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit + 1)
+      .lean();
 
-    const total = await Message.countDocuments({ conversation: conversationId });
+    const hasMore = messages.length > limit;
+    const pageMessages = hasMore ? messages.slice(0, limit) : messages;
 
     // Reverse so client gets chronological order
-    const chronological = messages.reverse();
+    const chronological = pageMessages.reverse();
 
     return res.status(200).json({
       success: true,
@@ -46,8 +50,7 @@ const getMessages = async (req, res) => {
       pagination: {
         page,
         limit,
-        total,
-        hasMore: total > skip + limit
+        hasMore
       }
     });
   } catch (error) {
@@ -152,34 +155,51 @@ const sendMessage = async (req, res) => {
     if (io) {
       io.to(`conversation:${conversationId}`).to(conversationId.toString()).emit('receive_message', populatedMessage);
       if (conversation.participants) {
-        conversation.participants.forEach(async (pId) => {
-          const participantIdStr = pId.toString();
-          if (participantIdStr !== senderId.toString()) {
+        const otherParticipants = conversation.participants.filter(
+          (pId) => pId.toString() !== senderId.toString()
+        );
+
+        if (otherParticipants.length > 0) {
+          const notifDocs = otherParticipants.map((pId) => ({
+            recipient: pId,
+            sender: senderId,
+            type: replyTo ? 'reply' : 'message',
+            conversation: conversationId,
+            message: message._id,
+            content: content || 'Sent an attachment'
+          }));
+
+          Notification.insertMany(notifDocs, { ordered: false }).catch((err) =>
+            console.error('[Notification Batch Save Error]:', err)
+          );
+
+          otherParticipants.forEach((pId) => {
+            const participantIdStr = pId.toString();
             io.to(`user:${participantIdStr}`).emit('new_message_notification', {
               conversationId,
               message: populatedMessage
             });
-
-            try {
-              const notif = await Notification.create({
-                recipient: pId,
-                sender: senderId,
-                type: replyTo ? 'reply' : 'message',
-                conversation: conversationId,
-                message: message._id,
-                content: content || 'Sent an attachment'
-              });
-
-              const populatedNotif = await Notification.findById(notif._id)
-                .populate('sender', 'name username avatar')
-                .populate('conversation', 'type groupInfo');
-
-              io.to(`user:${participantIdStr}`).emit('new_notification', populatedNotif);
-            } catch (notifErr) {
-              console.error('[Notification Save Error]:', notifErr);
-            }
-          }
-        });
+            io.to(`user:${participantIdStr}`).emit('new_notification', {
+              recipient: pId,
+              sender: {
+                _id: req.user._id,
+                name: req.user.name,
+                username: req.user.username,
+                avatar: req.user.avatar
+              },
+              type: replyTo ? 'reply' : 'message',
+              conversation: {
+                _id: conversation._id,
+                type: conversation.type,
+                groupInfo: conversation.groupInfo
+              },
+              message: message._id,
+              content: content || 'Sent an attachment',
+              read: false,
+              createdAt: new Date()
+            });
+          });
+        }
       }
     }
 

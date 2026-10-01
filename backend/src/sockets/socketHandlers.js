@@ -168,35 +168,53 @@ const initSocketHandlers = (io) => {
         io.to(`conversation:${conversationId}`).emit('receive_message', populated);
 
         // Also notify offline participants via personal user rooms
-        conversation.participants.forEach(async (pId) => {
-          const participantIdStr = pId.toString();
-          if (participantIdStr !== userId) {
+        const otherParticipants = (conversation.participants || []).filter(
+          (pId) => pId.toString() !== userId
+        );
+
+        if (otherParticipants.length > 0) {
+          const notifDocs = otherParticipants.map((pId) => ({
+            recipient: pId,
+            sender: socket.user._id,
+            type: replyTo ? 'reply' : 'message',
+            conversation: conversationId,
+            message: message._id,
+            content: content || 'Sent an attachment',
+            read: false
+          }));
+
+          Notification.insertMany(notifDocs, { ordered: false }).catch((notifErr) =>
+            console.error('[Socket Notification Save Error]:', notifErr)
+          );
+
+          otherParticipants.forEach((pId) => {
+            const participantIdStr = pId.toString();
             io.to(`user:${participantIdStr}`).emit('new_message_notification', {
               conversationId,
               message: populated
             });
 
-            // Create persistent in-app notification
-            try {
-              const notif = await Notification.create({
-                recipient: pId,
-                sender: socket.user._id,
-                type: replyTo ? 'reply' : 'message',
-                conversation: conversationId,
-                message: message._id,
-                content: content || 'Sent an attachment'
-              });
-
-              const populatedNotif = await Notification.findById(notif._id)
-                .populate('sender', 'name username avatar')
-                .populate('conversation', 'type groupInfo');
-
-              io.to(`user:${participantIdStr}`).emit('new_notification', populatedNotif);
-            } catch (notifErr) {
-              console.error('Failed to create/emit notification:', notifErr);
-            }
-          }
-        });
+            io.to(`user:${participantIdStr}`).emit('new_notification', {
+              recipient: pId,
+              sender: {
+                _id: socket.user._id,
+                name: socket.user.name,
+                username: socket.user.username,
+                avatar: socket.user.avatar
+              },
+              type: replyTo ? 'reply' : 'message',
+              conversation: {
+                _id: conversation._id,
+                type: conversation.type,
+                groupInfo: conversation.groupInfo
+              },
+              message: message._id,
+              content: content || 'Sent an attachment',
+              read: false,
+              createdAt: new Date()
+            });
+          });
+        }
       } catch (err) {
         socket.emit('error_message', { message: 'Failed to send message: ' + err.message });
       }

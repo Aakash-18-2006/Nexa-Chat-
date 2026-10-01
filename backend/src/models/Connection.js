@@ -33,6 +33,7 @@ const connectionSchema = new mongoose.Schema(
 
 // Compound unique index to guarantee no duplicate follows
 connectionSchema.index({ follower: 1, following: 1 }, { unique: true });
+connectionSchema.index({ following: 1, follower: 1 });
 connectionSchema.index({ users: 1 });
 
 /**

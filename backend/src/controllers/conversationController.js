@@ -18,13 +18,11 @@ const getConversations = async (req, res) => {
       .populate('participants', 'name username email avatar isOnline lastSeen')
       .populate({
         path: 'lastMessage',
+        select: 'content type createdAt isDeleted sender',
         populate: { path: 'sender', select: 'name username avatar' }
       })
-      .populate({
-        path: 'pinnedMessages',
-        populate: { path: 'sender', select: 'name username avatar' }
-      })
-      .sort({ updatedAt: -1 });
+      .sort({ updatedAt: -1 })
+      .lean();
 
     // Sort pinned conversations to the top for the current user
     const conversations = rawConversations.sort((a, b) => {

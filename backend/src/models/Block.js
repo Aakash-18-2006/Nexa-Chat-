@@ -22,6 +22,7 @@ const blockSchema = new mongoose.Schema(
 
 // Unique index to prevent duplicate block entries
 blockSchema.index({ blocker: 1, blocked: 1 }, { unique: true });
+blockSchema.index({ blocked: 1, blocker: 1 });
 
 /**
  * Check if interaction between two users is blocked in either direction

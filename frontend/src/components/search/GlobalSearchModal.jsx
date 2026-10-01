@@ -35,26 +35,39 @@ export const GlobalSearchModal = ({ isOpen, onClose }) => {
   const [showFilterBar, setShowFilterBar] = useState(false);
 
   useEffect(() => {
-    if (!query.trim()) {
+    const trimmed = query.trim();
+    if (!trimmed) {
       setResults({ users: [], conversations: [], messages: [] });
+      setLoading(false);
       return;
     }
+
+    const abortController = new AbortController();
 
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await searchApi.globalSearch(query.trim());
-        if (res.data.success) {
-          setResults(res.data.results);
+        const res = await searchApi.globalSearch(trimmed, {
+          signal: abortController.signal
+        });
+        if (res.data?.success) {
+          setResults(res.data.results || { users: [], conversations: [], messages: [] });
         }
       } catch (err) {
-        console.error('Search error:', err);
+        if (err.name !== 'CanceledError' && err.name !== 'AbortError' && err.code !== 'ERR_CANCELED') {
+          console.error('Search error:', err);
+        }
       } finally {
-        setLoading(false);
+        if (!abortController.signal.aborted) {
+          setLoading(false);
+        }
       }
-    }, 250);
+    }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      abortController.abort();
+    };
   }, [query]);
 
   // Real-time synchronization of relationship statuses while search modal is open

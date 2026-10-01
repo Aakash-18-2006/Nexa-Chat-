@@ -41,10 +41,19 @@ const connectDB = async (retries = 5, delayMs = 2500) => {
   }
 
   const mongooseOpts = {
-    serverSelectionTimeoutMS: 10000,
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 10000,
     socketTimeoutMS: 45000,
-    maxPoolSize: 10
+    maxPoolSize: 50,
+    minPoolSize: 5,
+    heartbeatFrequencyMS: 10000,
+    autoIndex: process.env.NODE_ENV !== 'production'
   };
+
+  // Ensure default database name is 'nexa' if omitted from URI path
+  if (!connectionUri.includes('/nexa') && !connectionUri.match(/mongodb\.net\/[a-zA-Z0-9_-]+/)) {
+    mongooseOpts.dbName = 'nexa';
+  }
 
   const isAtlas = connectionUri.includes('mongodb+srv') || connectionUri.includes('mongodb.net');
 

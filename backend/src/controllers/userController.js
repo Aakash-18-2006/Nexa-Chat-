@@ -46,7 +46,8 @@ const searchUsers = async (req, res) => {
     // Query real users from database, only selecting safe public fields
     const users = await User.find(filter)
       .select('name username email avatar bio isOnline lastSeen')
-      .limit(30);
+      .limit(30)
+      .lean();
 
     const usersWithStatus = await enrichUsersWithRelationship(currentUserId, users);
 

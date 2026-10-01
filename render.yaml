@@ -4,6 +4,7 @@ services:
     name: nexa-backend
     env: node
     plan: free
+    region: singapore # Closest Render region to MongoDB Atlas cluster in Mumbai (asia-south1), slashing cross-continental latency from ~250ms to ~40ms
     buildCommand: cd backend && npm install
     startCommand: cd backend && npm start
     envVars:

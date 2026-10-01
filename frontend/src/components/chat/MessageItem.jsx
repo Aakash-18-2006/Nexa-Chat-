@@ -24,7 +24,7 @@ import {
 
 const COMMON_EMOJIS = ['👍', '❤️', '🔥', '😂', '🎉', '😮'];
 
-export const MessageItem = ({
+export const MessageItem = React.memo(({
   message,
   isOwn,
   showAvatar,
@@ -272,6 +272,8 @@ export const MessageItem = ({
                       <img
                         src={att.url}
                         alt={att.name || 'Image'}
+                        loading="lazy"
+                        decoding="async"
                         className="max-h-72 w-auto object-cover rounded-xl"
                       />
                     </a>
@@ -454,4 +456,6 @@ export const MessageItem = ({
       </div>
     </div>
   );
-};
+});
+
+MessageItem.displayName = 'MessageItem';

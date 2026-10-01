@@ -755,33 +755,32 @@ const enrichUsersWithRelationship = async (currentUserId, users) => {
   if (!users || users.length === 0) return [];
   const userIds = users.map((u) => u._id);
 
-  // 1. Blocks
-  const blocks = await Block.find({
-    $or: [
-      { blocker: currentUserId, blocked: { $in: userIds } },
-      { blocker: { $in: userIds }, blocked: currentUserId }
-    ]
-  });
+  // Run relationship queries in parallel to eliminate sequential round-trip latency
+  const [blocks, myFollowings, myFollowers, followRequests] = await Promise.all([
+    Block.find({
+      $or: [
+        { blocker: currentUserId, blocked: { $in: userIds } },
+        { blocker: { $in: userIds }, blocked: currentUserId }
+      ]
+    }).lean(),
+    Connection.find({ follower: currentUserId, following: { $in: userIds } }).lean(),
+    Connection.find({ following: currentUserId, follower: { $in: userIds } }).lean(),
+    FollowRequest.find({
+      $or: [
+        { sender: currentUserId, recipient: { $in: userIds } },
+        { sender: { $in: userIds }, recipient: currentUserId }
+      ]
+    }).lean()
+  ]);
+
   const blockedIds = new Set();
   blocks.forEach((b) => {
     blockedIds.add(b.blocker.toString());
     blockedIds.add(b.blocked.toString());
   });
 
-  // 2. Active connections in both directions
-  const myFollowings = await Connection.find({ follower: currentUserId, following: { $in: userIds } });
-  const myFollowers = await Connection.find({ following: currentUserId, follower: { $in: userIds } });
-
   const iFollowIds = new Set(myFollowings.map((c) => c.following.toString()));
   const theyFollowIds = new Set(myFollowers.map((c) => c.follower.toString()));
-
-  // 3. Follow requests
-  const followRequests = await FollowRequest.find({
-    $or: [
-      { sender: currentUserId, recipient: { $in: userIds } },
-      { sender: { $in: userIds }, recipient: currentUserId }
-    ]
-  });
 
   return users.map((u) => {
     const uObj = u.toObject ? u.toObject() : { ...u };

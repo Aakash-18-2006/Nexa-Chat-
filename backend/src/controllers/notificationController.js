@@ -4,17 +4,19 @@ const Notification = require('../models/Notification');
 // @route   GET /api/notifications
 const getNotifications = async (req, res) => {
   try {
-    const notifications = await Notification.find({ recipient: req.user._id })
-      .populate('sender', 'name username avatar')
-      .populate('conversation', 'type groupInfo')
-      .populate('followRequest')
-      .sort({ createdAt: -1 })
-      .limit(40);
-
-    const unreadCount = await Notification.countDocuments({
-      recipient: req.user._id,
-      read: false
-    });
+    const [notifications, unreadCount] = await Promise.all([
+      Notification.find({ recipient: req.user._id })
+        .populate('sender', 'name username avatar')
+        .populate('conversation', 'type groupInfo')
+        .populate('followRequest')
+        .sort({ createdAt: -1 })
+        .limit(40)
+        .lean(),
+      Notification.countDocuments({
+        recipient: req.user._id,
+        read: false
+      })
+    ]);
 
     const Connection = require('../models/Connection');
     const senderIds = notifications
@@ -23,7 +25,7 @@ const getNotifications = async (req, res) => {
     const myFollowings = await Connection.find({
       follower: req.user._id,
       following: { $in: senderIds }
-    });
+    }).lean();
     const followedSenderIds = new Set(myFollowings.map((c) => c.following.toString()));
 
     const enrichedNotifications = notifications.map((n) => {

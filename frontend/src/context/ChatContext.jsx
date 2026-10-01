@@ -14,6 +14,9 @@ export const ChatProvider = ({ children }) => {
   const [activeConversation, setActiveConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [messagesPage, setMessagesPage] = useState(1);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
 
@@ -111,9 +114,9 @@ export const ChatProvider = ({ children }) => {
     });
   };
 
-  // Load conversations
+  // Load conversations - memoized on user?._id to prevent duplicate fetches
   const fetchConversations = useCallback(async () => {
-    if (!user) return;
+    if (!user?._id) return;
     try {
       const res = await chatApi.getConversations();
       if (res.data.success) {
@@ -122,7 +125,7 @@ export const ChatProvider = ({ children }) => {
     } catch (err) {
       console.error('Failed to load conversations:', err);
     }
-  }, [user]);
+  }, [user?._id]);
 
   useEffect(() => {
     fetchConversations();
@@ -132,33 +135,75 @@ export const ChatProvider = ({ children }) => {
   useEffect(() => {
     if (!activeConversation) {
       setMessages([]);
+      setMessagesPage(1);
+      setHasMoreMessages(false);
       return;
     }
 
+    const convId = activeConversation._id;
+    let isCancelled = false;
+
     const loadMessages = async () => {
       setLoadingMessages(true);
+      setMessagesPage(1);
       try {
-        const res = await chatApi.getMessages(activeConversation._id);
-        if (res.data.success) {
-          setMessages(res.data.messages);
+        const res = await chatApi.getMessages(convId, 1, 40);
+        if (!isCancelled && res.data.success) {
+          setMessages(res.data.messages || []);
+          setHasMoreMessages(Boolean(res.data.pagination?.hasMore));
         }
-        // Mark as read
-        await chatApi.markAsRead(activeConversation._id);
-        socket?.emit('message_read', { conversationId: activeConversation._id });
+
+        // Non-blocking mark as read in background via socket or HTTP
+        if (socket?.connected) {
+          socket.emit('message_read', { conversationId: convId });
+        } else {
+          chatApi.markAsRead(convId).catch(() => {});
+        }
       } catch (err) {
-        console.error('Failed to load messages:', err);
+        if (!isCancelled) {
+          console.error('Failed to load messages:', err);
+        }
       } finally {
-        setLoadingMessages(false);
+        if (!isCancelled) {
+          setLoadingMessages(false);
+        }
       }
     };
 
-    joinConversation(activeConversation._id);
+    joinConversation(convId);
     loadMessages();
 
     return () => {
-      leaveConversation(activeConversation._id);
+      isCancelled = true;
+      leaveConversation(convId);
     };
-  }, [activeConversation?._id, socket]);
+  }, [activeConversation?._id]);
+
+  // Load older messages (infinite scroll up)
+  const loadOlderMessages = useCallback(async () => {
+    if (!activeConversation || !hasMoreMessages || loadingOlder) return;
+
+    try {
+      setLoadingOlder(true);
+      const nextPage = messagesPage + 1;
+      const res = await chatApi.getMessages(activeConversation._id, nextPage, 40);
+      if (res.data?.success) {
+        const older = res.data.messages || [];
+        setMessages((prev) => {
+          // Avoid prepending duplicates
+          const existingIds = new Set(prev.map((m) => m._id));
+          const freshOlder = older.filter((m) => !existingIds.has(m._id));
+          return [...freshOlder, ...prev];
+        });
+        setMessagesPage(nextPage);
+        setHasMoreMessages(Boolean(res.data.pagination?.hasMore));
+      }
+    } catch (err) {
+      console.error('Failed to load older messages:', err);
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [activeConversation, hasMoreMessages, loadingOlder, messagesPage]);
 
   // Real-time socket event listeners
   useEffect(() => {
@@ -168,34 +213,55 @@ export const ChatProvider = ({ children }) => {
     const handleReceiveMessage = (message) => {
       if (activeConversation && message.conversation === activeConversation._id) {
         setMessages((prev) => {
+          // If message is already present by ID, ignore
           if (prev.some((m) => m._id === message._id)) return prev;
+
+          // Reconcile optimistic message sent by current user
+          const optimisticIndex = prev.findIndex(
+            (m) =>
+              m.isOptimistic &&
+              (m.sender?._id === message.sender?._id || m.sender === message.sender?._id) &&
+              m.content === message.content
+          );
+
+          if (optimisticIndex !== -1) {
+            const updated = [...prev];
+            updated[optimisticIndex] = message;
+            return updated;
+          }
+
           return [...prev, message];
         });
 
         // Mark as read immediately if chat is open
-        if (message.sender._id !== user._id) {
-          chatApi.markAsRead(activeConversation._id);
-          socket.emit('message_read', { conversationId: activeConversation._id });
+        if (message.sender?._id !== user?._id && message.sender !== user?._id) {
+          if (socket.connected) {
+            socket.emit('message_read', { conversationId: activeConversation._id });
+          } else {
+            chatApi.markAsRead(activeConversation._id).catch(() => {});
+          }
           if (soundEnabled) {
             sound.playMessageReceived();
           }
         }
-      } else if (message.sender._id !== user._id && soundEnabled) {
+      } else if (message.sender?._id !== user?._id && message.sender !== user?._id && soundEnabled) {
         sound.playMessageReceived();
       }
 
       // Update conversations list preview
       setConversations((prev) => {
-        return prev.map((conv) => {
-          if (conv._id === message.conversation) {
-            return {
-              ...conv,
-              lastMessage: message,
-              updatedAt: new Date().toISOString()
-            };
-          }
-          return conv;
-        }).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+        return prev
+          .map((conv) => {
+            if (conv._id === message.conversation) {
+              return {
+                ...conv,
+                lastMessage: message,
+                updatedAt: new Date().toISOString()
+              };
+            }
+            return conv;
+          })
+          .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
       });
     };
 
@@ -270,9 +336,46 @@ export const ChatProvider = ({ children }) => {
     };
   }, [socket, activeConversation, user?._id]);
 
-  // Send message helper
+  // Send message helper with instant optimistic UI update
   const sendMessage = async ({ content, type = 'text', attachments = [] }) => {
     if (!activeConversation) return;
+
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const currentReplyTo = replyingTo;
+
+    // Optimistic local message representation
+    const optimisticMessage = {
+      _id: tempId,
+      tempId,
+      conversation: activeConversation._id,
+      content: content || '',
+      type,
+      attachments,
+      replyTo: currentReplyTo ? {
+        _id: currentReplyTo._id,
+        content: currentReplyTo.content,
+        sender: currentReplyTo.sender
+      } : null,
+      sender: {
+        _id: user?._id,
+        name: user?.name || 'You',
+        username: user?.username || 'you',
+        avatar: user?.avatar || ''
+      },
+      createdAt: new Date().toISOString(),
+      readBy: [{ user: user?._id, readAt: new Date() }],
+      deliveredTo: [{ user: user?._id, deliveredAt: new Date() }],
+      reactions: [],
+      isOptimistic: true
+    };
+
+    // Immediately display the message in the UI (< 5ms)
+    setMessages((prev) => [...prev, optimisticMessage]);
+
+    if (soundEnabled) {
+      sound.playMessageSent();
+    }
+    setReplyingTo(null);
 
     try {
       const payload = {
@@ -280,24 +383,29 @@ export const ChatProvider = ({ children }) => {
         content,
         type,
         attachments,
-        replyTo: replyingTo ? replyingTo._id : null
+        replyTo: currentReplyTo ? currentReplyTo._id : null
       };
 
       if (socket && socket.connected) {
         socket.emit('send_message', payload);
       } else {
         const res = await chatApi.sendMessage(payload);
-        if (res.data.success) {
-          setMessages((prev) => [...prev, res.data.message]);
+        if (res.data?.success) {
+          setMessages((prev) => {
+            const idx = prev.findIndex((m) => m._id === tempId);
+            if (idx !== -1) {
+              const next = [...prev];
+              next[idx] = res.data.message;
+              return next;
+            }
+            return [...prev, res.data.message];
+          });
         }
       }
-
-      if (soundEnabled) {
-        sound.playMessageSent();
-      }
-      setReplyingTo(null);
     } catch (err) {
       console.error('Failed to send message:', err);
+      // Remove or mark failed optimistic message
+      setMessages((prev) => prev.filter((m) => m._id !== tempId));
     }
   };
 
@@ -362,6 +470,9 @@ export const ChatProvider = ({ children }) => {
         messages,
         setMessages,
         loadingMessages,
+        hasMoreMessages,
+        loadingOlder,
+        loadOlderMessages,
         sendMessage,
         replyingTo,
         setReplyingTo,

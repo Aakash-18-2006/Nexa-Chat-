@@ -3,7 +3,7 @@ import { Avatar } from '../ui/Avatar';
 import { Users, Pin, Check } from 'lucide-react';
 import { formatTime } from '../../utils/formatters';
 
-export const ConversationItem = ({
+export const ConversationItem = React.memo(({
   conversation,
   active,
   onClick,
@@ -199,4 +199,6 @@ export const ConversationItem = ({
       </div>
     </div>
   );
-};
+});
+
+ConversationItem.displayName = 'ConversationItem';

@@ -165,6 +165,7 @@ messageSchema.pre('save', function (next) {
 
 messageSchema.index({ conversation: 1, createdAt: -1 });
 messageSchema.index({ conversationId: 1, createdAt: -1 });
+messageSchema.index({ conversation: 1, 'readBy.user': 1 });
 messageSchema.index({ content: 'text' });
 
 const Message = mongoose.model('Message', messageSchema);

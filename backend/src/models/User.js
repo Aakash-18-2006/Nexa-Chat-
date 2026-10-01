@@ -250,6 +250,7 @@ userSchema.methods.toSafeObject = function () {
 };
 
 // Indexing for rapid search & sorting
+userSchema.index({ name: 1 });
 userSchema.index({ username: 1, email: 1 });
 userSchema.index({ name: 'text', username: 'text' });
 

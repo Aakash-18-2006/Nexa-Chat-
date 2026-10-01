@@ -20,7 +20,6 @@ import {
 export const NewChatModal = ({ isOpen, onClose }) => {
   const { selectConversation, fetchConversations } = useChat();
   const { socket } = useSocket();
-  const { fetchNotifications } = useNotifications();
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -28,26 +27,39 @@ export const NewChatModal = ({ isOpen, onClose }) => {
   const [actionLoading, setActionLoading] = useState({});
 
   useEffect(() => {
-    if (!query.trim()) {
+    const trimmed = query.trim();
+    if (!trimmed) {
       setResults([]);
+      setLoading(false);
       return;
     }
+
+    const abortController = new AbortController();
 
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await userApi.searchUsers(query);
-        if (res.data.success) {
-          setResults(res.data.users);
+        const res = await userApi.searchUsers(trimmed, {
+          signal: abortController.signal
+        });
+        if (res.data?.success) {
+          setResults(res.data.users || []);
         }
       } catch (err) {
-        console.error('Search failed:', err);
+        if (err.name !== 'CanceledError' && err.name !== 'AbortError' && err.code !== 'ERR_CANCELED') {
+          console.error('Search failed:', err);
+        }
       } finally {
-        setLoading(false);
+        if (!abortController.signal.aborted) {
+          setLoading(false);
+        }
       }
-    }, 250);
+    }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      abortController.abort();
+    };
   }, [query]);
 
   // Synchronize relationship statuses via socket while modal is open

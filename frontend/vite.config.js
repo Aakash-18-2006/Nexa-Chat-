@@ -21,21 +21,39 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://127.0.0.1:5000',
         changeOrigin: true,
         configure: (proxy) => {
           proxy.on('error', (err, req) => {
-            console.error(`[Vite Proxy Error] Could not reach backend server at http://localhost:5000 for ${req.method} ${req.url}: ${err.code}`);
+            console.error(`[Vite Proxy Error] Could not reach backend server at http://127.0.0.1:5000 for ${req.method} ${req.url}: ${err.code}`);
           });
         }
       },
       '/uploads': {
-        target: 'http://localhost:5000',
+        target: 'http://127.0.0.1:5000',
         changeOrigin: true
       },
       '/socket.io': {
-        target: 'http://localhost:5000',
+        target: 'http://127.0.0.1:5000',
         ws: true
+      }
+    }
+  },
+  build: {
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+            return 'vendor-react';
+          }
+          if (id.includes('node_modules/socket.io-client/')) {
+            return 'vendor-socket';
+          }
+          if (id.includes('node_modules/lucide-react/')) {
+            return 'vendor-icons';
+          }
+        }
       }
     }
   }

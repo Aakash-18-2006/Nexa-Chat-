@@ -103,6 +103,20 @@ app.use(
 
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+
+// Performance Timing Middleware: measures request lifecycle and sets Server-Timing header
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    res.set('Server-Timing', `total;dur=${duration}`);
+    if (duration > 200) {
+      console.log(`[API Latency Warning] ${req.method} ${req.originalUrl} - ${res.statusCode} (${duration}ms)`);
+    }
+  });
+  next();
+});
+
 app.use(morgan('dev'));
 
 // Static uploads directory

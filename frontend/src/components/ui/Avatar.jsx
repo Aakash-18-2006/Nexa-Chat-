@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const Avatar = ({ src, name = 'User', size = 'md', isOnline = false, showStatus = true }) => {
+export const Avatar = React.memo(({ src, name = 'User', size = 'md', isOnline = false, showStatus = true }) => {
   const [hasError, setHasError] = React.useState(false);
 
   React.useEffect(() => {
@@ -54,6 +54,8 @@ export const Avatar = ({ src, name = 'User', size = 'md', isOnline = false, show
           key={resolvedSrc}
           src={resolvedSrc}
           alt={name}
+          loading="lazy"
+          decoding="async"
           className={`${sizeClasses[size] || sizeClasses.md} rounded-full object-cover border border-white/10 bg-slate-800 shadow-sm`}
           onError={() => setHasError(true)}
         />
@@ -73,4 +75,6 @@ export const Avatar = ({ src, name = 'User', size = 'md', isOnline = false, show
       )}
     </div>
   );
-};
+});
+
+Avatar.displayName = 'Avatar';

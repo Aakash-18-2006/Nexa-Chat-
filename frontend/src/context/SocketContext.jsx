@@ -102,29 +102,29 @@ export const SocketProvider = ({ children }) => {
     };
   }, [token, user?._id]);
 
-  const joinConversation = (conversationId) => {
+  const joinConversation = React.useCallback((conversationId) => {
     if (socketRef.current && conversationId) {
       socketRef.current.emit('join_conversation', conversationId);
     }
-  };
+  }, []);
 
-  const leaveConversation = (conversationId) => {
+  const leaveConversation = React.useCallback((conversationId) => {
     if (socketRef.current && conversationId) {
       socketRef.current.emit('leave_conversation', conversationId);
     }
-  };
+  }, []);
 
-  const startTyping = (conversationId) => {
+  const startTyping = React.useCallback((conversationId) => {
     if (socketRef.current && conversationId) {
       socketRef.current.emit('typing_start', { conversationId });
     }
-  };
+  }, []);
 
-  const stopTyping = (conversationId) => {
+  const stopTyping = React.useCallback((conversationId) => {
     if (socketRef.current && conversationId) {
       socketRef.current.emit('typing_stop', { conversationId });
     }
-  };
+  }, []);
 
   return (
     <SocketContext.Provider
