@@ -153,37 +153,45 @@ const ChatDashboard = () => {
         onLogout={logout}
       />
 
-      {/* Global Modals */}
-      <GlobalSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
-      <NewChatModal isOpen={newChatOpen} onClose={() => setNewChatOpen(false)} />
-      <CreateGroupModal isOpen={newGroupOpen} onClose={() => setNewGroupOpen(false)} />
-      <AddMembersModal
-        isOpen={addMembersOpen}
-        onClose={() => setAddMembersOpen(false)}
-        conversation={activeConversation}
-      />
-      <TempRoomModal isOpen={tempRoomOpen} onClose={() => setTempRoomOpen(false)} />
-      <AIAssistantModal
-        isOpen={aiAssistantOpen}
-        onClose={() => setAiAssistantOpen(false)}
-        conversation={activeConversation}
-        initialTab={aiInitialTab}
-      />
-      <UserProfileModal
-        userId={user?._id}
-        isOpen={myProfileOpen}
-        onClose={() => setMyProfileOpen(false)}
-        onEditProfile={() => {
-          setMyProfileOpen(false);
-          setSettingsInitialTab('account');
-          setSettingsOpen(true);
-        }}
-      />
-      <SettingsModal
-        isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        initialTab={settingsInitialTab}
-      />
+      {/* Global Modals - Conditionally rendered only when active to avoid mounting 10,000+ lines of DOM/hooks */}
+      {searchOpen && <GlobalSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />}
+      {newChatOpen && <NewChatModal isOpen={newChatOpen} onClose={() => setNewChatOpen(false)} />}
+      {newGroupOpen && <CreateGroupModal isOpen={newGroupOpen} onClose={() => setNewGroupOpen(false)} />}
+      {addMembersOpen && (
+        <AddMembersModal
+          isOpen={addMembersOpen}
+          onClose={() => setAddMembersOpen(false)}
+          conversation={activeConversation}
+        />
+      )}
+      {tempRoomOpen && <TempRoomModal isOpen={tempRoomOpen} onClose={() => setTempRoomOpen(false)} />}
+      {aiAssistantOpen && (
+        <AIAssistantModal
+          isOpen={aiAssistantOpen}
+          onClose={() => setAiAssistantOpen(false)}
+          conversation={activeConversation}
+          initialTab={aiInitialTab}
+        />
+      )}
+      {myProfileOpen && (
+        <UserProfileModal
+          userId={user?._id}
+          isOpen={myProfileOpen}
+          onClose={() => setMyProfileOpen(false)}
+          onEditProfile={() => {
+            setMyProfileOpen(false);
+            setSettingsInitialTab('account');
+            setSettingsOpen(true);
+          }}
+        />
+      )}
+      {settingsOpen && (
+        <SettingsModal
+          isOpen={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          initialTab={settingsInitialTab}
+        />
+      )}
       {/* Call Modals */}
       <IncomingCallModal />
       <CallModal />

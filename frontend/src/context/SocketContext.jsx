@@ -126,19 +126,28 @@ export const SocketProvider = ({ children }) => {
     }
   }, []);
 
+  const contextValue = React.useMemo(() => ({
+    socket,
+    isConnected,
+    onlineUsers,
+    typingUsers,
+    joinConversation,
+    leaveConversation,
+    startTyping,
+    stopTyping
+  }), [
+    socket,
+    isConnected,
+    onlineUsers,
+    typingUsers,
+    joinConversation,
+    leaveConversation,
+    startTyping,
+    stopTyping
+  ]);
+
   return (
-    <SocketContext.Provider
-      value={{
-        socket,
-        isConnected,
-        onlineUsers,
-        typingUsers,
-        joinConversation,
-        leaveConversation,
-        startTyping,
-        stopTyping
-      }}
-    >
+    <SocketContext.Provider value={contextValue}>
       {children}
     </SocketContext.Provider>
   );

@@ -90,7 +90,7 @@ export const NotificationProvider = ({ children }) => {
     };
   }, [socket, user]);
 
-  const markAsRead = async (id) => {
+  const markAsRead = useCallback(async (id) => {
     try {
       // Optimistic update
       setNotifications((prev) =>
@@ -104,9 +104,9 @@ export const NotificationProvider = ({ children }) => {
       // Revert if needed by refetching
       fetchNotifications();
     }
-  };
+  }, [fetchNotifications]);
 
-  const markAllAsRead = async () => {
+  const markAllAsRead = useCallback(async () => {
     try {
       // Optimistic update
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -117,25 +117,27 @@ export const NotificationProvider = ({ children }) => {
       console.error('Failed to mark all notifications as read:', err);
       fetchNotifications();
     }
-  };
+  }, [fetchNotifications]);
 
-  const deleteNotification = async (id) => {
-    const target = notifications.find((n) => n._id === id);
+  const deleteNotification = useCallback(async (id) => {
     try {
       // Optimistic delete
-      setNotifications((prev) => prev.filter((n) => n._id !== id));
-      if (target && !target.read) {
-        setUnreadCount((prev) => Math.max(0, prev - 1));
-      }
+      setNotifications((prev) => {
+        const target = prev.find((n) => n._id === id);
+        if (target && !target.read) {
+          setUnreadCount((count) => Math.max(0, count - 1));
+        }
+        return prev.filter((n) => n._id !== id);
+      });
 
       await notificationApi.deleteNotification(id);
     } catch (err) {
       console.error('Failed to delete notification:', err);
       fetchNotifications();
     }
-  };
+  }, [fetchNotifications]);
 
-  const clearAll = async () => {
+  const clearAll = useCallback(async () => {
     try {
       setNotifications([]);
       setUnreadCount(0);
@@ -144,28 +146,39 @@ export const NotificationProvider = ({ children }) => {
       console.error('Failed to clear all notifications:', err);
       fetchNotifications();
     }
-  };
+  }, [fetchNotifications]);
 
-  const toggleNotifications = () => {
+  const toggleNotifications = useCallback(() => {
     setIsOpen((prev) => !prev);
-  };
+  }, []);
+
+  const contextValue = React.useMemo(() => ({
+    notifications,
+    unreadCount,
+    loading,
+    isOpen,
+    setIsOpen,
+    toggleNotifications,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    clearAll
+  }), [
+    notifications,
+    unreadCount,
+    loading,
+    isOpen,
+    toggleNotifications,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    clearAll
+  ]);
 
   return (
-    <NotificationContext.Provider
-      value={{
-        notifications,
-        unreadCount,
-        loading,
-        isOpen,
-        setIsOpen,
-        toggleNotifications,
-        fetchNotifications,
-        markAsRead,
-        markAllAsRead,
-        deleteNotification,
-        clearAll
-      }}
-    >
+    <NotificationContext.Provider value={contextValue}>
       {children}
     </NotificationContext.Provider>
   );

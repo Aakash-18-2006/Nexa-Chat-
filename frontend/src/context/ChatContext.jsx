@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { chatApi, tempRoomApi } from '../api/endpoints';
 import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
@@ -459,42 +459,64 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
+  const contextValue = useMemo(() => ({
+    conversations,
+    setConversations,
+    activeConversation,
+    setActiveConversation,
+    selectConversation,
+    messages,
+    setMessages,
+    loadingMessages,
+    hasMoreMessages,
+    loadingOlder,
+    loadOlderMessages,
+    sendMessage,
+    replyingTo,
+    setReplyingTo,
+    editingMessage,
+    setEditingMessage,
+    rightPanelTab,
+    setRightPanelTab,
+    soundEnabled,
+    toggleSound,
+    fetchConversations,
+    chatThemes,
+    setChatTheme,
+    getChatTheme,
+    activeTempRoom,
+    tempMessages,
+    openTempRoom,
+    leaveTempRoom,
+    sendTempMessage
+  }), [
+    conversations,
+    activeConversation,
+    selectConversation,
+    messages,
+    loadingMessages,
+    hasMoreMessages,
+    loadingOlder,
+    loadOlderMessages,
+    sendMessage,
+    replyingTo,
+    editingMessage,
+    rightPanelTab,
+    soundEnabled,
+    toggleSound,
+    fetchConversations,
+    chatThemes,
+    setChatTheme,
+    getChatTheme,
+    activeTempRoom,
+    tempMessages,
+    openTempRoom,
+    leaveTempRoom,
+    sendTempMessage
+  ]);
+
   return (
-    <ChatContext.Provider
-      value={{
-        conversations,
-        setConversations,
-        activeConversation,
-        setActiveConversation,
-        selectConversation,
-        messages,
-        setMessages,
-        loadingMessages,
-        hasMoreMessages,
-        loadingOlder,
-        loadOlderMessages,
-        sendMessage,
-        replyingTo,
-        setReplyingTo,
-        editingMessage,
-        setEditingMessage,
-        rightPanelTab,
-        setRightPanelTab,
-        soundEnabled,
-        toggleSound,
-        fetchConversations,
-        // Chat Themes per-conversation/user
-        chatThemes,
-        setChatTheme,
-        getChatTheme,
-        // Temp rooms
-        activeTempRoom,
-        tempMessages,
-        openTempRoom,
-        leaveTempRoom,
-        sendTempMessage
-      }}
-    >
+    <ChatContext.Provider value={contextValue}>
       {children}
     </ChatContext.Provider>
   );
