@@ -267,10 +267,12 @@ const MainApp = () => {
 
   // Check if user is navigating to download route
   const isDownloadRoute =
-    currentPath.startsWith('/download') ||
-    currentPath.startsWith('/download-android') ||
-    currentPath.startsWith('/apk') ||
-    currentPath.startsWith('/app');
+    currentPath === '/download' ||
+    currentPath.startsWith('/download/') ||
+    currentPath === '/download-android' ||
+    currentPath.startsWith('/download-android/') ||
+    currentPath === '/apk' ||
+    currentPath.startsWith('/apk/');
 
   if (isDownloadRoute) {
     return (
