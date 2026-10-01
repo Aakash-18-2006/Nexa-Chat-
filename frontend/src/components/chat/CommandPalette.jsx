@@ -12,7 +12,8 @@ import {
   LogOut,
   Sparkles,
   Command,
-  User
+  User,
+  Smartphone
 } from 'lucide-react';
 
 export const CommandPalette = ({
@@ -97,6 +98,16 @@ export const CommandPalette = ({
       icon: Settings,
       category: 'System',
       run: onOpenSettings
+    },
+    {
+      id: 'download_android',
+      title: 'Download NEXA for Android',
+      description: 'Get the official NEXA Android APK release and QR code',
+      icon: Smartphone,
+      category: 'App',
+      run: () => {
+        window.open('https://nexa-chat.vercel.app/download', '_blank');
+      }
     },
     {
       id: 'logout',

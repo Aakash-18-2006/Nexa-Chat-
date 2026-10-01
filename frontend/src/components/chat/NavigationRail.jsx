@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useNotifications } from '../../context/NotificationContext';
-import { Volume2, VolumeX, Bell } from 'lucide-react';
+import { Volume2, VolumeX, Bell, Smartphone } from 'lucide-react';
 
 export const NavigationRail = ({
   activeSection, // 'all' | 'direct' | 'groups'
@@ -162,6 +162,20 @@ export const NavigationRail = ({
               </svg>
             </div>
           </button>
+
+          {/* Download NEXA for Android */}
+          <a
+            href="https://nexa-chat.vercel.app/download"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="nexa-rail-btn group"
+            title="Download NEXA for Android"
+            aria-label="Download NEXA for Android"
+          >
+            <div className="nexa-rail-icon">
+              <Smartphone className="w-5 h-5 text-slate-300 group-hover:text-[#ff1744] transition-colors" />
+            </div>
+          </a>
         </nav>
       </div>
 

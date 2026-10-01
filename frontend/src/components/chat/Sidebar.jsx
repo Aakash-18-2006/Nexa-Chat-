@@ -26,7 +26,8 @@ import {
   X,
   AlertTriangle,
   Loader2,
-  Check
+  Check,
+  Smartphone
 } from 'lucide-react';
 
 export const Sidebar = ({
@@ -288,6 +289,17 @@ export const Sidebar = ({
 
           {/* Mobile Action Icons (hidden on desktop because NavigationRail provides them) */}
           <div className="flex md:hidden items-center gap-0.5">
+            <a
+              href="https://nexa-chat.vercel.app/download"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-xl text-slate-300 hover:text-[#ff1744] hover:bg-white/5 transition-colors cursor-pointer"
+              title="Download NEXA for Android"
+              aria-label="Download NEXA for Android"
+            >
+              <Smartphone className="w-5 h-5 text-slate-300 hover:text-[#ff1744]" />
+            </a>
+
             <button
               type="button"
               onClick={onOpenNewChat}
