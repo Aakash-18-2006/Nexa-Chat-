@@ -28,6 +28,7 @@ export const CallProvider = ({ children }) => {
   const activeCallRef = useRef(null);
   const incomingCallRef = useRef(null);
   const callStateRef = useRef('idle');
+  const endedCallsRef = useRef(new Set());
 
   // Keep refs in sync for event callbacks
   useEffect(() => {
@@ -41,6 +42,19 @@ export const CallProvider = ({ children }) => {
   useEffect(() => {
     callStateRef.current = callState;
   }, [callState]);
+
+  // Notify backend that call has ended/failed and avoid duplicate emission
+  const notifyCallEnded = useCallback((callId, reason = 'ended') => {
+    if (!callId || !socket) return;
+    if (endedCallsRef.current.has(callId)) return;
+    endedCallsRef.current.add(callId);
+    console.log(`[NEXA Call] Emitting call:end for callId: ${callId}, reason: ${reason}`);
+    socket.emit('call:end', {
+      callId,
+      duration: callDuration,
+      reason
+    });
+  }, [socket, callDuration]);
 
   // Duration timer when WebRTC reaches 'connected'
   useEffect(() => {
@@ -230,10 +244,12 @@ export const CallProvider = ({ children }) => {
             setStatusMessage('');
           } else if (state === 'failed') {
             console.warn('[NEXA Call] Receiver connection state failed');
+            notifyCallEnded(callId, 'connection_failed');
             setStatusMessage('Connection failed');
             cleanupCall('failed', 2500);
           } else if (state === 'disconnected') {
             console.warn('[NEXA Call] Receiver peer disconnected');
+            notifyCallEnded(callId, 'peer_disconnected');
             setStatusMessage('User disconnected');
             cleanupCall('ended', 2000);
           }
@@ -277,6 +293,7 @@ export const CallProvider = ({ children }) => {
         setStatusMessage('Could not start microphone or camera.');
       }
 
+      if (callId) endedCallsRef.current.add(callId);
       socket.emit('call:reject', {
         callId,
         reason: 'failed'
@@ -289,9 +306,11 @@ export const CallProvider = ({ children }) => {
   // Reject Incoming Call
   const rejectCall = (reason = 'declined') => {
     if (!incomingCall || !socket) return;
+    const callId = incomingCall.callId;
     sound.stopRingtone();
+    if (callId) endedCallsRef.current.add(callId);
     socket.emit('call:reject', {
-      callId: incomingCall.callId,
+      callId,
       reason
     });
     setIncomingCall(null);
@@ -300,28 +319,30 @@ export const CallProvider = ({ children }) => {
 
   // Cancel Outgoing Call (Caller cancels before answer)
   const cancelCall = () => {
-    if (!activeCall || !socket) return;
+    const currentActive = activeCallRef.current;
+    if (!currentActive || !socket) return;
+    const callId = currentActive.callId;
     sound.stopOutgoingRing();
+    if (callId) endedCallsRef.current.add(callId);
     socket.emit('call:cancel', {
-      callId: activeCall.callId
+      callId
     });
     cleanupCall('idle');
   };
 
   // End Active or Connected Call
   const endCall = () => {
-    if (!activeCall || !socket) {
+    const currentActive = activeCallRef.current;
+    if (!currentActive || !socket) {
       cleanupCall('idle');
       return;
     }
+    const callId = currentActive.callId;
     sound.stopOutgoingRing();
     sound.stopRingtone();
     sound.playCallEnded();
 
-    socket.emit('call:end', {
-      callId: activeCall.callId,
-      duration: callDuration
-    });
+    notifyCallEnded(callId, 'user_ended');
 
     cleanupCall('ended', 1500);
   };
@@ -421,10 +442,12 @@ export const CallProvider = ({ children }) => {
               setStatusMessage('');
             } else if (state === 'failed') {
               console.warn('[NEXA Call] Caller connection state failed');
+              notifyCallEnded(callId, 'connection_failed');
               setStatusMessage('Connection failed');
               cleanupCall('failed', 2500);
             } else if (state === 'disconnected') {
               console.warn('[NEXA Call] Caller peer disconnected');
+              notifyCallEnded(callId, 'peer_disconnected');
               setStatusMessage('User disconnected');
               cleanupCall('ended', 2000);
             }
@@ -441,6 +464,7 @@ export const CallProvider = ({ children }) => {
         });
       } catch (err) {
         console.error('[NEXA Call] Error creating WebRTC offer on call acceptance:', err);
+        notifyCallEnded(callId, 'signaling_error');
         setCallState('failed');
         setStatusMessage('Signaling error');
         cleanupCall('failed', 2500);
@@ -450,6 +474,7 @@ export const CallProvider = ({ children }) => {
     // 4. Call Rejected / Declined / Busy / Timeout
     const handleCallRejected = ({ callId, reason }) => {
       console.log('[NEXA Call] Call rejected:', reason);
+      if (callId) endedCallsRef.current.add(callId);
       sound.stopOutgoingRing();
       sound.stopRingtone();
 
@@ -476,6 +501,7 @@ export const CallProvider = ({ children }) => {
     // 5. Caller Cancelled before answer
     const handleCallCancelled = ({ callId }) => {
       sound.stopRingtone();
+      if (callId) endedCallsRef.current.add(callId);
       if (incomingCallRef.current?.callId === callId || activeCallRef.current?.callId === callId) {
         setStatusMessage('Call cancelled');
         cleanupCall('missed', 1500);
@@ -518,6 +544,7 @@ export const CallProvider = ({ children }) => {
     // 7. Call Ended by remote peer
     const handleCallEnded = ({ callId, duration, reason }) => {
       console.log('[NEXA Call] Received call:ended for callId:', callId);
+      if (callId) endedCallsRef.current.add(callId);
       sound.stopOutgoingRing();
       sound.stopRingtone();
       sound.playCallEnded();
@@ -541,6 +568,7 @@ export const CallProvider = ({ children }) => {
 
     // 10. Call timed out (45s no answer)
     const handleCallTimeout = ({ callId }) => {
+      if (callId) endedCallsRef.current.add(callId);
       sound.stopOutgoingRing();
       sound.stopRingtone();
       setStatusMessage('No answer');
@@ -591,7 +619,7 @@ export const CallProvider = ({ children }) => {
       socket.off('webrtc-answer', handleDirectAnswer);
       socket.off('ice-candidate', handleDirectCandidate);
     };
-  }, [socket, cleanupCall]);
+  }, [socket, cleanupCall, notifyCallEnded]);
 
   return (
     <CallContext.Provider

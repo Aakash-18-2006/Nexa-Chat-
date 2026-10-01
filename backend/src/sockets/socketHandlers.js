@@ -506,9 +506,15 @@ const initSocketHandlers = (io) => {
 
         // Check if caller is already in a call
         if (userActiveCall.has(callerId)) {
-          socket.emit('call:error', { message: 'You already have an active call in progress.' });
-          if (typeof callback === 'function') callback({ success: false, message: 'Caller busy' });
-          return;
+          const existingCallId = userActiveCall.get(callerId);
+          if (!activeCalls.has(existingCallId)) {
+            // Self-healing: stale active call ID found, clear it
+            userActiveCall.delete(callerId);
+          } else {
+            socket.emit('call:error', { message: 'You already have an active call in progress.' });
+            if (typeof callback === 'function') callback({ success: false, message: 'Caller busy' });
+            return;
+          }
         }
 
         // Check if target user is online
@@ -532,20 +538,26 @@ const initSocketHandlers = (io) => {
 
         // Check if target user is already in a call
         if (userActiveCall.has(targetIdStr)) {
-          const busyCall = await Call.create({
-            conversationId,
-            caller: callerId,
-            receiver: targetIdStr,
-            callType,
-            status: 'busy',
-            startedAt: new Date(),
-            endedAt: new Date(),
-            duration: 0
-          });
-          await recordCallMessage(busyCall, io);
-          socket.emit('call:busy', { targetUserId: targetIdStr, message: 'User is currently busy on another call' });
-          if (typeof callback === 'function') callback({ success: false, status: 'busy', message: 'User busy' });
-          return;
+          const targetCallId = userActiveCall.get(targetIdStr);
+          if (!activeCalls.has(targetCallId)) {
+            // Self-healing: stale active call ID found, clear it
+            userActiveCall.delete(targetIdStr);
+          } else {
+            const busyCall = await Call.create({
+              conversationId,
+              caller: callerId,
+              receiver: targetIdStr,
+              callType,
+              status: 'busy',
+              startedAt: new Date(),
+              endedAt: new Date(),
+              duration: 0
+            });
+            await recordCallMessage(busyCall, io);
+            socket.emit('call:busy', { targetUserId: targetIdStr, message: 'User is currently busy on another call' });
+            if (typeof callback === 'function') callback({ success: false, status: 'busy', message: 'User busy' });
+            return;
+          }
         }
 
         // Create new Call record
@@ -677,28 +689,39 @@ const initSocketHandlers = (io) => {
 
     socket.on('call:reject', async ({ callId, reason = 'declined' }) => {
       try {
-        if (!callId || !activeCalls.has(callId)) return;
+        const userId = socket.user?._id?.toString();
+        if (!callId && userId) {
+          callId = userActiveCall.get(userId);
+        }
+        if (!callId) {
+          if (userId) userActiveCall.delete(userId);
+          return;
+        }
+
         const active = activeCalls.get(callId);
+        if (active) {
+          if (active.timeoutTimer) {
+            clearTimeout(active.timeoutTimer);
+            active.timeoutTimer = null;
+          }
 
-        if (active.timeoutTimer) {
-          clearTimeout(active.timeoutTimer);
-          active.timeoutTimer = null;
+          activeCalls.delete(callId);
+          userActiveCall.delete(active.callerId);
+          userActiveCall.delete(active.receiverId);
+
+          const call = await Call.findById(callId);
+          if (call && !['declined', 'busy', 'failed', 'ended', 'cancelled'].includes(call.status)) {
+            call.status = reason === 'busy' ? 'busy' : reason === 'failed' ? 'failed' : 'declined';
+            call.endedAt = new Date();
+            call.duration = 0;
+            await call.save();
+            await recordCallMessage(call, io);
+          }
+
+          io.to(`user:${active.callerId}`).emit('call:rejected', { callId, reason });
+        } else {
+          if (userId) userActiveCall.delete(userId);
         }
-
-        activeCalls.delete(callId);
-        userActiveCall.delete(active.callerId);
-        userActiveCall.delete(active.receiverId);
-
-        const call = await Call.findById(callId);
-        if (call) {
-          call.status = reason === 'busy' ? 'busy' : 'declined';
-          call.endedAt = new Date();
-          call.duration = 0;
-          await call.save();
-          await recordCallMessage(call, io);
-        }
-
-        io.to(`user:${active.callerId}`).emit('call:rejected', { callId, reason });
       } catch (err) {
         console.error('call:reject error:', err);
       }
@@ -706,30 +729,41 @@ const initSocketHandlers = (io) => {
 
     socket.on('call:cancel', async ({ callId }) => {
       try {
-        if (!callId || !activeCalls.has(callId)) return;
+        const userId = socket.user?._id?.toString();
+        if (!callId && userId) {
+          callId = userActiveCall.get(userId);
+        }
+        if (!callId) {
+          if (userId) userActiveCall.delete(userId);
+          return;
+        }
+
         const active = activeCalls.get(callId);
+        if (active) {
+          if (active.callerId !== userId) return;
 
-        if (active.callerId !== socket.user._id.toString()) return;
+          if (active.timeoutTimer) {
+            clearTimeout(active.timeoutTimer);
+            active.timeoutTimer = null;
+          }
 
-        if (active.timeoutTimer) {
-          clearTimeout(active.timeoutTimer);
-          active.timeoutTimer = null;
+          activeCalls.delete(callId);
+          userActiveCall.delete(active.callerId);
+          userActiveCall.delete(active.receiverId);
+
+          const call = await Call.findById(callId);
+          if (call && !['declined', 'busy', 'failed', 'ended', 'cancelled'].includes(call.status)) {
+            call.status = 'cancelled';
+            call.endedAt = new Date();
+            call.duration = 0;
+            await call.save();
+            await recordCallMessage(call, io);
+          }
+
+          io.to(`user:${active.receiverId}`).emit('call:cancelled', { callId });
+        } else {
+          if (userId) userActiveCall.delete(userId);
         }
-
-        activeCalls.delete(callId);
-        userActiveCall.delete(active.callerId);
-        userActiveCall.delete(active.receiverId);
-
-        const call = await Call.findById(callId);
-        if (call) {
-          call.status = 'cancelled';
-          call.endedAt = new Date();
-          call.duration = 0;
-          await call.save();
-          await recordCallMessage(call, io);
-        }
-
-        io.to(`user:${active.receiverId}`).emit('call:cancelled', { callId });
       } catch (err) {
         console.error('call:cancel error:', err);
       }
@@ -792,36 +826,50 @@ const initSocketHandlers = (io) => {
       });
     });
 
-    socket.on('call:end', async ({ callId, duration = 0 }) => {
+    socket.on('call:end', async ({ callId, duration = 0, reason = 'ended' }) => {
       try {
-        if (!callId || !activeCalls.has(callId)) return;
+        const callerOrReceiverId = socket.user?._id?.toString();
+        if (!callId && callerOrReceiverId) {
+          callId = userActiveCall.get(callerOrReceiverId);
+        }
+        if (!callId) {
+          if (callerOrReceiverId) userActiveCall.delete(callerOrReceiverId);
+          return;
+        }
+
         const active = activeCalls.get(callId);
+        if (active) {
+          if (active.timeoutTimer) {
+            clearTimeout(active.timeoutTimer);
+            active.timeoutTimer = null;
+          }
 
-        if (active.timeoutTimer) {
-          clearTimeout(active.timeoutTimer);
-          active.timeoutTimer = null;
+          activeCalls.delete(callId);
+          userActiveCall.delete(active.callerId);
+          userActiveCall.delete(active.receiverId);
+
+          let finalDuration = duration;
+          if (!finalDuration && active.connectedAt) {
+            finalDuration = Math.max(0, Math.round((Date.now() - new Date(active.connectedAt).getTime()) / 1000));
+          }
+
+          const call = await Call.findById(callId);
+          if (call && !['ended', 'cancelled', 'declined', 'busy'].includes(call.status)) {
+            call.status = reason === 'connection_failed' ? 'failed' : 'ended';
+            call.endedAt = new Date();
+            call.duration = finalDuration;
+            await call.save();
+            await recordCallMessage(call, io);
+          }
+
+          io.to(`user:${active.callerId}`).emit('call:ended', { callId, duration: finalDuration, reason });
+          io.to(`user:${active.receiverId}`).emit('call:ended', { callId, duration: finalDuration, reason });
+        } else {
+          // Idempotent cleanup for caller or receiver if activeCalls entry is already removed
+          if (callerOrReceiverId) {
+            userActiveCall.delete(callerOrReceiverId);
+          }
         }
-
-        activeCalls.delete(callId);
-        userActiveCall.delete(active.callerId);
-        userActiveCall.delete(active.receiverId);
-
-        let finalDuration = duration;
-        if (!finalDuration && active.connectedAt) {
-          finalDuration = Math.max(0, Math.round((Date.now() - new Date(active.connectedAt).getTime()) / 1000));
-        }
-
-        const call = await Call.findById(callId);
-        if (call) {
-          call.status = 'ended';
-          call.endedAt = new Date();
-          call.duration = finalDuration;
-          await call.save();
-          await recordCallMessage(call, io);
-        }
-
-        io.to(`user:${active.callerId}`).emit('call:ended', { callId, duration: finalDuration });
-        io.to(`user:${active.receiverId}`).emit('call:ended', { callId, duration: finalDuration });
       } catch (err) {
         console.error('call:end error:', err);
       }
