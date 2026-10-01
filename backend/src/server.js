@@ -104,16 +104,21 @@ app.use(
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
-// Performance Timing Middleware: measures request lifecycle and sets Server-Timing header
+// Performance Timing Middleware
+// Logs slow API requests without modifying headers after the response is sent.
 app.use((req, res, next) => {
   const start = Date.now();
+
   res.on('finish', () => {
     const duration = Date.now() - start;
-    res.set('Server-Timing', `total;dur=${duration}`);
+
     if (duration > 200) {
-      console.log(`[API Latency Warning] ${req.method} ${req.originalUrl} - ${res.statusCode} (${duration}ms)`);
+      console.log(
+        `[API Latency Warning] ${req.method} ${req.originalUrl} - ${res.statusCode} (${duration}ms)`
+      );
     }
   });
+
   next();
 });
 
@@ -195,7 +200,12 @@ app.use('/api/*', (req, res) => {
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error('[Unhandled Server Error]:', err);
-  res.status(err.status || 500).json({
+
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  return res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal server error occurred'
   });
