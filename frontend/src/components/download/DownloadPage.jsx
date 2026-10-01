@@ -21,7 +21,7 @@ export const DownloadPage = ({ onNavigateHome }) => {
   // GitHub Release direct download URL and Releases page
   const githubReleaseUrl = 'https://github.com/Aakash-18-2006/Nexa-Chat-/releases/latest/download/NEXA-Android.apk';
   const githubReleasesPage = 'https://github.com/Aakash-18-2006/Nexa-Chat-/releases';
-  const downloadPageUrl = typeof window !== 'undefined' ? `${window.location.origin}/download` : 'https://nexa-chat.vercel.app/download';
+  const downloadPageUrl = typeof window !== 'undefined' ? `${window.location.origin}/download` : 'https://nexa-chat-tau.vercel.app/download';
 
   const handleCopyLink = () => {
     if (navigator.clipboard) {

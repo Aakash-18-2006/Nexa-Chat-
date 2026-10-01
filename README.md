@@ -177,7 +177,7 @@ node scratch/test_persistence_after_restart.js
    - `PORT`: `5000` (or host provided)
    - `MONGODB_URI`: Your MongoDB Atlas connection string (`mongodb+srv://...`)
    - `JWT_SECRET`: A secure random 32+ character string
-   - `CLIENT_URL`: URL of your deployed frontend (e.g. `https://nexa-chat.vercel.app`)
+   - `CLIENT_URL`: URL of your deployed frontend (e.g. `https://nexa-chat-tau.vercel.app`)
    - `GEMINI_API_KEY`: *(Optional)* Google Gemini API key for advanced AI features
 
 ---

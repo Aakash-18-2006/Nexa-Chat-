@@ -106,7 +106,7 @@ export const CommandPalette = ({
       icon: Smartphone,
       category: 'App',
       run: () => {
-        window.open('https://nexa-chat.vercel.app/download', '_blank');
+        window.open('https://nexa-chat-tau.vercel.app/download', '_blank');
       }
     },
     {

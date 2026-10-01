@@ -290,7 +290,7 @@ export const Sidebar = ({
           {/* Mobile Action Icons (hidden on desktop because NavigationRail provides them) */}
           <div className="flex md:hidden items-center gap-0.5">
             <a
-              href="https://nexa-chat.vercel.app/download"
+              href="https://nexa-chat-tau.vercel.app/download"
               target="_blank"
               rel="noopener noreferrer"
               className="p-2 rounded-xl text-slate-300 hover:text-[#ff1744] hover:bg-white/5 transition-colors cursor-pointer"

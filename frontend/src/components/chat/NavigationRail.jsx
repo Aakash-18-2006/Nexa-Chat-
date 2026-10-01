@@ -165,7 +165,7 @@ export const NavigationRail = ({
 
           {/* Download NEXA for Android */}
           <a
-            href="https://nexa-chat.vercel.app/download"
+            href="https://nexa-chat-tau.vercel.app/download"
             target="_blank"
             rel="noopener noreferrer"
             className="nexa-rail-btn group"
