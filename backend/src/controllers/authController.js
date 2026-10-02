@@ -134,7 +134,14 @@ const register = async (req, res) => {
       name: user.name,
       verificationUrl
     }).catch((emailErr) => {
-      console.error('[Register Background Verification Email Error]:', emailErr?.message || emailErr);
+      console.error('[Register Background Verification Email Error]:', {
+        name: emailErr?.name,
+        code: emailErr?.code,
+        command: emailErr?.command,
+        response: emailErr?.response,
+        responseCode: emailErr?.responseCode,
+        message: emailErr?.message
+      });
     });
 
     const token = generateToken(user._id, sessionId);
@@ -248,7 +255,14 @@ const resendVerification = async (req, res) => {
       name: user.name,
       verificationUrl
     }).catch((emailErr) => {
-      console.error('[Resend Verification Background Email Error]:', emailErr?.message || emailErr);
+      console.error('[Resend Verification Background Email Error]:', {
+        name: emailErr?.name,
+        code: emailErr?.code,
+        command: emailErr?.command,
+        response: emailErr?.response,
+        responseCode: emailErr?.responseCode,
+        message: emailErr?.message
+      });
     });
 
     return res.status(200).json(genericResponse);

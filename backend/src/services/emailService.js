@@ -329,7 +329,8 @@ The NEXA Team
         providerResponse: info.response
       };
     } catch (err) {
-      console.error('[Email Service] SMTP Provider Delivery Error:', {
+      console.error('[Email Service] SMTP Password Reset Delivery Error:', {
+        name: err.name,
         code: err.code,
         command: err.command,
         response: err.response,
@@ -511,7 +512,14 @@ The NEXA Team
         console.log(`[Email Service] Verification email sent to ${to}: ${info.messageId}`);
         return { success: true, messageId: info.messageId };
       } catch (err) {
-        console.error('[Email Service] Failed to send verification email via SMTP:', err.message);
+        console.error('[Email Service] SMTP Verification Delivery Error:', {
+          name: err.name,
+          code: err.code,
+          command: err.command,
+          response: err.response,
+          responseCode: err.responseCode,
+          message: err.message
+        });
       }
     }
 
@@ -712,7 +720,14 @@ NEXA Security Team
         accepted: info.accepted
       };
     } catch (err) {
-      console.error('[Email Service] Failed to send email change confirmation via SMTP:', err.message);
+      console.error('[Email Service] SMTP Email Change Delivery Error:', {
+        name: err.name,
+        code: err.code,
+        command: err.command,
+        response: err.response,
+        responseCode: err.responseCode,
+        message: err.message
+      });
       throw err;
     }
   }

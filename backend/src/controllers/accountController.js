@@ -338,7 +338,14 @@ const requestEmailChange = async (req, res) => {
     }).then(() => {
       console.log(`[Account] Email change confirmation dispatched for user @${req.user.username} to new email: ${cleanEmail}`);
     }).catch((emailErr) => {
-      console.error('[Account] Background email change confirmation error:', emailErr?.message || emailErr);
+      console.error('[Account] Background email change confirmation error:', {
+        name: emailErr?.name,
+        code: emailErr?.code,
+        command: emailErr?.command,
+        response: emailErr?.response,
+        responseCode: emailErr?.responseCode,
+        message: emailErr?.message
+      });
     });
 
     return res.status(200).json({
