@@ -80,15 +80,29 @@ jobs:
             -PNEXA_RELEASE_KEY_ALIAS="$NEXA_RELEASE_KEY_ALIAS" \
             -PNEXA_RELEASE_KEY_PASSWORD="$NEXA_RELEASE_KEY_PASSWORD"
 
+      - name: Locate release APK
+        working-directory: frontend/android
+        run: |
+          echo "Searching for generated release APKs..."
+
+          find . -type f -name "*.apk" -print
+
+          APK=$(find app/build/outputs -type f -name "*.apk" | head -n 1)
+
+          if [ -z "$APK" ]; then
+            echo "ERROR: No APK was generated."
+            exit 1
+          fi
+
+          echo "Found APK: $APK"
+          echo "APK_PATH=$APK" >> "$GITHUB_ENV"
+
       - name: Verify APK signature
         working-directory: frontend/android
         run: |
-          APK="app/build/outputs/apk/release/app-release.apk"
+          APK="$APK_PATH"
 
-          if [ ! -f "$APK" ]; then
-            echo "ERROR: Release APK was not created."
-            exit 1
-          fi
+          echo "Verifying: $APK"
 
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
 
@@ -102,11 +116,10 @@ jobs:
       - name: Rename APK
         working-directory: frontend/android
         run: |
-          cp app/build/outputs/apk/release/app-release.apk \
-             app/build/outputs/apk/release/NEXA-Android.apk
+          cp "$APK_PATH" app/build/outputs/release/NEXA-Android.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: NEXA-Android
-          path: frontend/android/app/build/outputs/apk/release/NEXA-Android.apk
+          path: frontend/android/app/build/outputs/release/NEXA-Android.apk
