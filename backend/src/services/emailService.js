@@ -22,15 +22,21 @@ class EmailService {
       try {
         const isPort465 = port === 465;
         this.transporter = nodemailer.createTransport({
+          pool: true,
+          maxConnections: 5,
+          maxMessages: 100,
           host,
           port,
           secure: isPort465, // false for port 587 (uses STARTTLS), true for 465
           auth: { user, pass },
           tls: {
             rejectUnauthorized: process.env.NODE_ENV === 'production'
-          }
+          },
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
+          socketTimeout: 15000
         });
-        console.log(`[Email Service] Configured Gmail SMTP transporter (${host}:${port})`);
+        console.log(`[Email Service] Configured Gmail SMTP transporter (${host}:${port}) with connection pooling`);
       } catch (transporterErr) {
         console.error('[Email Service] Failed to initialize nodemailer transporter:', transporterErr.message);
         this.transporter = null;

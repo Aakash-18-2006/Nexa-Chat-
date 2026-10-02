@@ -126,18 +126,16 @@ const register = async (req, res) => {
     const verifyToken = user.createEmailVerificationToken();
     await user.save();
 
-    // Send verification email
+    // Send verification email in background (non-blocking)
     const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
     const verificationUrl = `${clientUrl}/verify-email?token=${verifyToken}`;
-    try {
-      await emailService.sendVerificationEmail({
-        to: user.email,
-        name: user.name,
-        verificationUrl
-      });
-    } catch (emailErr) {
-      console.error('[Register Verification Email Error]:', emailErr);
-    }
+    emailService.sendVerificationEmail({
+      to: user.email,
+      name: user.name,
+      verificationUrl
+    }).catch((emailErr) => {
+      console.error('[Register Background Verification Email Error]:', emailErr?.message || emailErr);
+    });
 
     const token = generateToken(user._id, sessionId);
 
@@ -244,10 +242,13 @@ const resendVerification = async (req, res) => {
     const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
     const verificationUrl = `${clientUrl}/verify-email?token=${verifyToken}`;
 
-    await emailService.sendVerificationEmail({
+    // Send verification email in background (non-blocking)
+    emailService.sendVerificationEmail({
       to: user.email,
       name: user.name,
       verificationUrl
+    }).catch((emailErr) => {
+      console.error('[Resend Verification Background Email Error]:', emailErr?.message || emailErr);
     });
 
     return res.status(200).json(genericResponse);
@@ -940,21 +941,18 @@ const forgotPassword = async (req, res) => {
     const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
     const resetUrl = `${clientUrl}/reset-password?token=${resetToken}`;
 
-    console.log('[Forgot Password Flow] Step 5: Attempting to send reset email');
-    try {
-      // Dispatches email ONLY to the registered email found in database
-      const emailResult = await emailService.sendPasswordResetEmail({
-        to: user.email,
-        name: user.name || user.username,
-        resetUrl,
-        expiresInMinutes: 30
-      });
-
+    console.log('[Forgot Password Flow] Step 5: Dispatching reset email in background (non-blocking)');
+    emailService.sendPasswordResetEmail({
+      to: user.email,
+      name: user.name || user.username,
+      resetUrl,
+      expiresInMinutes: 30
+    }).then((emailResult) => {
       console.log('[Forgot Password Flow] Step 6: Email provider response received');
-      console.log('   Delivery success:', emailResult.success);
-    } catch (emailErr) {
+      console.log('   Delivery success:', emailResult?.success);
+    }).catch(async (emailErr) => {
       // Distinguish the technical error category on the server
-      if (emailErr.code === 'NO_SMTP_CONFIG' || emailErr.message.includes('No SMTP')) {
+      if (emailErr.code === 'NO_SMTP_CONFIG' || emailErr.message?.includes('No SMTP')) {
         console.error('[Forgot Password Server Diagnostic - Category: SMTP Configuration Missing]');
         console.error('   Reason: SMTP_PASS is empty in backend/.env.');
         console.error('   Action: Generate a 16-character Google App Password at https://myaccount.google.com/apppasswords and set SMTP_PASS in backend/.env.');
@@ -968,20 +966,20 @@ const forgotPassword = async (req, res) => {
         console.error('   Action: Check internet access and outbound port 587 connectivity.');
       } else {
         console.error('[Forgot Password Server Diagnostic - Category: Email Send Failure]');
-        console.error('   Reason:', emailErr.message);
+        console.error('   Reason:', emailErr?.message || emailErr);
       }
 
-      // Clean up token so un-emailed token does not linger in DB
-      user.passwordResetToken = undefined;
-      user.passwordResetExpires = undefined;
-      await user.save({ validateBeforeSave: false });
-
-      // Return the safe generic message to the frontend without exposing technical errors or email addresses
-      return res.status(200).json({
-        success: true,
-        message: genericSuccessMessage
-      });
-    }
+      // Clean up token only if it has not been replaced by a subsequent request
+      try {
+        const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+        await User.updateOne(
+          { _id: user._id, passwordResetToken: hashedToken },
+          { $unset: { passwordResetToken: 1, passwordResetExpires: 1 } }
+        );
+      } catch (cleanupErr) {
+        console.error('[Forgot Password Cleanup Error]:', cleanupErr?.message || cleanupErr);
+      }
+    });
 
     return res.status(200).json({
       success: true,
