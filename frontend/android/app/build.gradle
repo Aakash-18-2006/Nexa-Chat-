@@ -1,4 +1,19 @@
 apply plugin: 'com.android.application'
+import groovy.json.JsonSlurper
+
+def getFrontendVersion() {
+    try {
+        def pkgFile = file('../../package.json')
+        if (pkgFile.exists()) {
+            def parsed = new JsonSlurper().parseText(pkgFile.text)
+            return parsed.version ?: "1.0.1"
+        }
+    } catch (Exception ignored) {}
+    return "1.0.1"
+}
+
+def resolvedVersionName = project.findProperty('VERSION_NAME') ?: System.getenv('VERSION_NAME') ?: getFrontendVersion()
+def resolvedVersionCode = (project.findProperty('VERSION_CODE') ?: System.getenv('VERSION_CODE') ?: 1) as Integer
 
 android {
     namespace = "com.nexa.chat"
@@ -7,8 +22,8 @@ android {
         applicationId "com.nexa.chat"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode resolvedVersionCode
+        versionName resolvedVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

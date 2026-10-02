@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
 import {
   Smartphone,
   Download,
@@ -17,11 +18,41 @@ import {
 export const DownloadPage = ({ onNavigateHome }) => {
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [releaseVersion, setReleaseVersion] = useState('Latest (Production)');
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
 
   // GitHub Release direct download URL and Releases page
   const githubReleaseUrl = 'https://github.com/Aakash-18-2006/Nexa-Chat-/releases/latest/download/NEXA-Android.apk';
   const githubReleasesPage = 'https://github.com/Aakash-18-2006/Nexa-Chat-/releases';
   const downloadPageUrl = typeof window !== 'undefined' ? `${window.location.origin}/download` : 'https://nexa-chat-tau.vercel.app/download';
+
+  useEffect(() => {
+    // Generate high-resolution QR code dynamically from stable download page URL
+    QRCode.toDataURL(downloadPageUrl, {
+      width: 512,
+      margin: 1,
+      color: {
+        dark: '#050505',
+        light: '#ffffff'
+      },
+      errorCorrectionLevel: 'H'
+    })
+      .then((url) => setQrCodeDataUrl(url))
+      .catch((err) => console.debug('[DownloadPage] QR generation fallback:', err));
+
+    // Fetch live release tag from GitHub Releases
+    fetch('https://api.github.com/repos/Aakash-18-2006/Nexa-Chat-/releases/latest')
+      .then((res) => res.json())
+      .then((data) => {
+        const tag = data?.tag_name || data?.name;
+        if (tag) {
+          setReleaseVersion(tag.startsWith('v') ? tag : `v${tag}`);
+        }
+      })
+      .catch(() => {
+        // Fallback to latest label
+      });
+  }, [downloadPageUrl]);
 
   const handleCopyLink = () => {
     if (navigator.clipboard) {
@@ -115,7 +146,7 @@ export const DownloadPage = ({ onNavigateHome }) => {
                 </div>
                 <div>
                   <span className="text-slate-500 block text-[10px] font-bold uppercase">Version</span>
-                  <span className="text-slate-200 font-semibold">v1.0.0</span>
+                  <span className="text-slate-200 font-semibold">{releaseVersion}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 block text-[10px] font-bold uppercase">Package ID</span>
@@ -166,7 +197,7 @@ export const DownloadPage = ({ onNavigateHome }) => {
               {/* High-Resolution QR Code Container */}
               <div className="relative mx-auto w-48 h-48 sm:w-52 sm:h-52 bg-white rounded-2xl p-3.5 shadow-[0_0_40px_rgba(255,23,68,0.2)] border-2 border-[#ff1744]/30 flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
                 <img
-                  src="/assets/nexa-android-qr.svg"
+                  src={qrCodeDataUrl || '/assets/nexa-android-qr.svg'}
                   alt="NEXA Android APK Download QR Code"
                   className="w-full h-full object-contain"
                 />

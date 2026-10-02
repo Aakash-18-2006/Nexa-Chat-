@@ -19,6 +19,7 @@ import { PainThemeBackground } from './components/ui/PainThemeBackground';
 import { ResetPasswordPage } from './components/auth/ResetPasswordPage';
 import { VerifyEmailPage } from './components/auth/VerifyEmailPage';
 import { DownloadPage } from './components/download/DownloadPage';
+import { UpdateNotificationBanner } from './components/common/UpdateNotificationBanner';
 
 // Modals
 import { NewChatModal } from './components/chat/NewChatModal';
@@ -276,38 +277,33 @@ const MainApp = () => {
     currentPath === '/app' ||
     currentPath.startsWith('/app/');
 
-  if (isDownloadRoute) {
-    return (
-      <DownloadPage
-        onNavigateHome={() => {
-          window.history.replaceState({}, '', '/');
-          setCurrentPath('/');
-        }}
-      />
-    );
-  }
-
-  if (!user) {
-    const isLoginRoute = currentPath === '/login';
-    const isRegisterRoute = currentPath === '/register';
-    return (
-      <LandingPage
-        initialAuthOpen={returnToLogin || returnToForgot || isLoginRoute || isRegisterRoute}
-        initialAuthMode={returnToForgot ? 'forgot' : isRegisterRoute ? 'register' : 'login'}
-      />
-    );
-  }
-
   return (
-    <SocketProvider>
-      <NotificationProvider>
-        <ChatProvider>
-          <CallProvider>
-            <ChatDashboard />
-          </CallProvider>
-        </ChatProvider>
-      </NotificationProvider>
-    </SocketProvider>
+    <>
+      <UpdateNotificationBanner />
+      {isDownloadRoute ? (
+        <DownloadPage
+          onNavigateHome={() => {
+            window.history.replaceState({}, '', '/');
+            setCurrentPath('/');
+          }}
+        />
+      ) : !user ? (
+        <LandingPage
+          initialAuthOpen={returnToLogin || returnToForgot || currentPath === '/login' || currentPath === '/register'}
+          initialAuthMode={returnToForgot ? 'forgot' : currentPath === '/register' ? 'register' : 'login'}
+        />
+      ) : (
+        <SocketProvider>
+          <NotificationProvider>
+            <ChatProvider>
+              <CallProvider>
+                <ChatDashboard />
+              </CallProvider>
+            </ChatProvider>
+          </NotificationProvider>
+        </SocketProvider>
+      )}
+    </>
   );
 };
 
