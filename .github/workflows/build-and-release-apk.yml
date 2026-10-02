@@ -64,6 +64,8 @@ jobs:
             exit 1
           fi
 
+          echo "Release keystore restored successfully."
+
       - name: Build signed release APK
         working-directory: frontend/android
         env:
@@ -83,8 +85,7 @@ jobs:
       - name: Locate release APK
         working-directory: frontend/android
         run: |
-          echo "Searching for generated release APKs..."
-
+          echo "Searching for generated APK files..."
           find . -type f -name "*.apk" -print
 
           APK=$(find app/build/outputs -type f -name "*.apk" | head -n 1)
@@ -94,7 +95,7 @@ jobs:
             exit 1
           fi
 
-          echo "Found APK: $APK"
+          echo "Found release APK: $APK"
           echo "APK_PATH=$APK" >> "$GITHUB_ENV"
 
       - name: Verify APK signature
@@ -102,24 +103,39 @@ jobs:
         run: |
           APK="$APK_PATH"
 
-          echo "Verifying: $APK"
+          echo "Verifying APK: $APK"
 
-          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" \
+            -name apksigner \
+            -type f \
+            | sort -V \
+            | tail -n 1)
 
           if [ -z "$APKSIGNER" ]; then
             echo "ERROR: apksigner was not found."
             exit 1
           fi
 
+          echo "Using apksigner: $APKSIGNER"
+
           "$APKSIGNER" verify --verbose "$APK"
+
+          echo "APK signature verification passed."
 
       - name: Rename APK
         working-directory: frontend/android
         run: |
-          cp "$APK_PATH" app/build/outputs/release/NEXA-Android.apk
+          mkdir -p app/build/outputs/release
+
+          cp "$APK_PATH" \
+            app/build/outputs/release/NEXA-Android.apk
+
+          echo "Final APK:"
+          ls -lh app/build/outputs/release/NEXA-Android.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: NEXA-Android
           path: frontend/android/app/build/outputs/release/NEXA-Android.apk
+          if-no-files-found: error
