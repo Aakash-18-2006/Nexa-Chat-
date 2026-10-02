@@ -329,15 +329,17 @@ const requestEmailChange = async (req, res) => {
     const backendUrl = getBackendUrl(req);
     const confirmationUrl = `${backendUrl}/api/account/confirm-email-change?token=${rawToken}`;
 
-    // Dispatch confirmation email to NEW email address via configured Gmail SMTP
-    await emailService.sendEmailChangeConfirmation({
+    // Dispatch confirmation email in background (non-blocking)
+    emailService.sendEmailChangeConfirmation({
       to: cleanEmail,
       name: req.user.name || req.user.username,
       confirmationUrl,
       expiresInMinutes
+    }).then(() => {
+      console.log(`[Account] Email change confirmation dispatched for user @${req.user.username} to new email: ${cleanEmail}`);
+    }).catch((emailErr) => {
+      console.error('[Account] Background email change confirmation error:', emailErr?.message || emailErr);
     });
-
-    console.log(`[Account] Email change confirmation dispatched for user @${req.user.username} to new email: ${cleanEmail}`);
 
     return res.status(200).json({
       success: true,
