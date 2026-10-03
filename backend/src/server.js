@@ -202,7 +202,10 @@ app.get('/api/health/smtp', async (req, res) => {
   const user = process.env.SMTP_USER || process.env.EMAIL_USER || '';
   const host = process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com';
   const resolvedAddress = status.resolvedAddress || (await emailService.resolveIPv4(host)).ip;
-  const tcpCheck = await emailService.testTcpConnectivity(resolvedAddress, port, 5000);
+  const [tcpCheck465, tcpCheck587] = await Promise.all([
+    emailService.testTcpConnectivity(resolvedAddress, 465, 5000),
+    emailService.testTcpConnectivity(resolvedAddress, 587, 5000)
+  ]);
 
   res.status(status.verified ? 200 : 503).json({
     status: status.verified ? 'ok' : 'pending_configuration',
@@ -215,12 +218,22 @@ app.get('/api/health/smtp', async (req, res) => {
     family: 4,
     transportHost: resolvedAddress,
     tcpConnectivity: {
-      success: tcpCheck.success,
-      targetIp: tcpCheck.targetIp,
-      targetPort: tcpCheck.targetPort,
-      elapsedMs: tcpCheck.elapsedMs,
-      error: tcpCheck.error,
-      code: tcpCheck.code
+      port465: {
+        success: tcpCheck465.success,
+        targetIp: tcpCheck465.targetIp,
+        targetPort: 465,
+        elapsedMs: tcpCheck465.elapsedMs,
+        error: tcpCheck465.error,
+        code: tcpCheck465.code
+      },
+      port587: {
+        success: tcpCheck587.success,
+        targetIp: tcpCheck587.targetIp,
+        targetPort: 587,
+        elapsedMs: tcpCheck587.elapsedMs,
+        error: tcpCheck587.error,
+        code: tcpCheck587.code
+      }
     },
     user: user ? user : null,
     from: process.env.EMAIL_FROM || process.env.SMTP_FROM || (user ? `"NEXA Security" <${user}>` : null),

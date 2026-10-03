@@ -293,19 +293,28 @@ class EmailService {
       console.log(`Transport port: ${port}`);
       console.log(`Account: ${user}`);
 
-      // Safe raw TCP connectivity probe to the resolved IPv4 address on port 465
-      console.log(`\n--- Raw TCP Diagnostic Check ---`);
-      console.log(`Testing raw TCP connectivity to ${dnsResult.ip}:${port} (timeout: 7000ms)...`);
-      const tcpResult = await this.testTcpConnectivity(dnsResult.ip, port, 7000);
-      console.log(`TCP target IPv4: ${tcpResult.targetIp}`);
-      console.log(`TCP target port: ${tcpResult.targetPort}`);
-      console.log(`TCP connection status: ${tcpResult.success ? 'SUCCESS (Connected)' : 'FAILED'}`);
-      console.log(`TCP elapsed time: ${tcpResult.elapsedMs}ms`);
-      if (!tcpResult.success) {
-        console.log(`TCP error code: ${tcpResult.code || 'UNKNOWN'}`);
-        console.log(`TCP error message: ${tcpResult.error || 'Connection failed'}`);
+      // Safe raw TCP connectivity probe to the resolved IPv4 address on BOTH port 465 and port 587
+      console.log(`\n--- Raw TCP Diagnostic Check (Port 465 vs 587) ---`);
+      console.log(`Testing TCP connectivity to ${dnsResult.ip}:465 (timeout: 7000ms)...`);
+      const tcpResult465 = await this.testTcpConnectivity(dnsResult.ip, 465, 7000);
+      console.log(`  Port 465 Target: ${dnsResult.ip}:465`);
+      console.log(`  Port 465 Status: ${tcpResult465.success ? 'SUCCESS (Connected)' : 'FAILED'}`);
+      console.log(`  Port 465 Elapsed: ${tcpResult465.elapsedMs}ms`);
+      if (!tcpResult465.success) {
+        console.log(`  Port 465 Error Code: ${tcpResult465.code || 'UNKNOWN'}`);
+        console.log(`  Port 465 Error Msg: ${tcpResult465.error || 'Connection failed'}`);
       }
-      console.log(`--------------------------------\n`);
+
+      console.log(`Testing TCP connectivity to ${dnsResult.ip}:587 (timeout: 7000ms)...`);
+      const tcpResult587 = await this.testTcpConnectivity(dnsResult.ip, 587, 7000);
+      console.log(`  Port 587 Target: ${dnsResult.ip}:587`);
+      console.log(`  Port 587 Status: ${tcpResult587.success ? 'SUCCESS (Connected)' : 'FAILED'}`);
+      console.log(`  Port 587 Elapsed: ${tcpResult587.elapsedMs}ms`);
+      if (!tcpResult587.success) {
+        console.log(`  Port 587 Error Code: ${tcpResult587.code || 'UNKNOWN'}`);
+        console.log(`  Port 587 Error Msg: ${tcpResult587.error || 'Connection failed'}`);
+      }
+      console.log(`---------------------------------------------------\n`);
 
       console.log('Testing Gmail SMTP connection...');
 
