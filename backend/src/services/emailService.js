@@ -1,19 +1,84 @@
+const { Resend } = require('resend');
 const nodemailer = require('nodemailer');
 const dns = require('dns').promises;
 const net = require('net');
 
 class EmailService {
   constructor() {
+    this.resendClient = null;
+    this.cachedResendApiKey = null;
     this.transporter = null;
     this.resolvedIPv4 = null;
     this.resolvedAt = 0;
     this.DNS_TTL_MS = 5 * 60 * 1000; // 5 minute IPv4 DNS cache
     this.currentConfig = null;
-    this.initTransporter();
   }
 
   /**
-   * Resolves hostname strictly to an IPv4 address to prevent ENETUNREACH on platforms like Render lacking IPv6 outbound routing.
+   * Identifies the active email delivery provider based on environment configuration.
+   * Defaults to 'resend' (HTTPS API) for production.
+   * @returns {'resend' | 'smtp'}
+   */
+  getProvider() {
+    const configuredProvider = (process.env.EMAIL_PROVIDER || '').trim().toLowerCase();
+    if (configuredProvider === 'smtp') {
+      return 'smtp';
+    }
+    if (configuredProvider === 'resend' || process.env.RESEND_API_KEY) {
+      return 'resend';
+    }
+    // If SMTP credentials are provided without RESEND_API_KEY and provider wasn't explicitly set to resend
+    if ((process.env.SMTP_PASS || process.env.EMAIL_PASS) && !process.env.RESEND_API_KEY && configuredProvider !== 'resend') {
+      return 'smtp';
+    }
+    return 'resend';
+  }
+
+  /**
+   * Initializes or returns the cached Resend API client.
+   * @returns {Resend | null}
+   */
+  getResendClient() {
+    const apiKey = (process.env.RESEND_API_KEY || '').trim();
+    if (!apiKey) {
+      this.resendClient = null;
+      this.cachedResendApiKey = null;
+      return null;
+    }
+    if (!this.resendClient || this.cachedResendApiKey !== apiKey) {
+      this.resendClient = new Resend(apiKey);
+      this.cachedResendApiKey = apiKey;
+    }
+    return this.resendClient;
+  }
+
+  /**
+   * Returns the configured sender (FROM) address.
+   * Priority: EMAIL_FROM -> SMTP_FROM -> provider default.
+   * Note: With Resend, sender domain must be verified in Resend dashboard, or onboarding@resend.dev used during testing.
+   * @returns {string}
+   */
+  getDefaultFromAddress() {
+    const rawFrom = (process.env.EMAIL_FROM || process.env.SMTP_FROM || '').trim();
+    if (rawFrom) {
+      return rawFrom;
+    }
+
+    const provider = this.getProvider();
+    if (provider === 'resend') {
+      // Default placeholder for Resend until custom domain is verified in Resend dashboard
+      return 'NEXA Security <onboarding@resend.dev>';
+    }
+
+    const smtpUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+    if (smtpUser) {
+      return `"NEXA Security" <${smtpUser}>`;
+    }
+    return '"NEXA Security" <noreply@nexa.chat>';
+  }
+
+  /**
+   * Resolves hostname strictly to an IPv4 address for legacy SMTP connections.
    * @param {string} hostname
    * @returns {Promise<{ ip: string, source: string, family: number, hostname: string }>}
    */
@@ -40,7 +105,7 @@ class EmailService {
         return this.resolvedIPv4;
       }
     } catch (resolveErr) {
-      // resolve4 might fail on some system DNS configurations; fallback to dns.lookup
+      // Fallback to dns.lookup
     }
 
     // 2. Fallback resolution: dns.lookup with explicit family: 4 (AF_INET)
@@ -55,17 +120,20 @@ class EmailService {
       console.error(`[Email Service] Failed to resolve IPv4 for ${hostname}:`, lookupErr.message);
     }
 
-    // Fallback: return hostname
     return { ip: hostname, source: 'fallback_hostname', family: 4, hostname };
   }
 
   /**
-   * Initializes or returns the configured Nodemailer transporter with explicit IPv4 routing.
+   * Initializes or returns the configured Nodemailer transporter for optional/legacy SMTP delivery.
    * @param {boolean} [forceRefresh=false]
    */
   async getTransporter(forceRefresh = false) {
     const rawHost = (process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
-    const rawPort = (process.env.SMTP_PORT || process.env.EMAIL_PORT || '587').trim();
+    let rawPort = (process.env.SMTP_PORT || process.env.EMAIL_PORT || '587').trim();
+    let port = parseInt(rawPort, 10) || 587;
+    if (port === 465) {
+      port = 587;
+    }
     const rawUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
     const rawPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
 
@@ -79,20 +147,16 @@ class EmailService {
     }
 
     try {
-      const port = parseInt(rawPort, 10) || 587;
-      const isPort465 = port === 465;
       const dnsResult = await this.resolveIPv4(rawHost);
 
-      // Connect directly to the resolved IPv4 address to bypass Nodemailer's internal resolve6 IPv6 selection,
-      // while using tls.servername to preserve SNI and strict TLS certificate verification for smtp.gmail.com.
       this.transporter = nodemailer.createTransport({
         pool: true,
         maxConnections: 5,
         maxMessages: 100,
         host: dnsResult.ip,
-        port,
-        secure: isPort465, // false for port 587 (STARTTLS), true for 465
-        requireTLS: !isPort465, // Enforce STARTTLS encryption upgrade on port 587
+        port: 587,
+        secure: false,
+        requireTLS: true,
         auth: { user: rawUser, pass: rawPass },
         tls: {
           servername: rawHost,
@@ -107,14 +171,13 @@ class EmailService {
       this.currentConfig = {
         host: rawHost,
         resolvedAddress: dnsResult.ip,
-        port,
-        secure: isPort465,
-        requireTLS: !isPort465,
+        port: 587,
+        secure: false,
+        requireTLS: true,
         family: 4,
         source: dnsResult.source
       };
 
-      console.log(`[Email Service] Configured Gmail SMTP transporter -> Host: ${rawHost} (IPv4: ${dnsResult.ip}), Port: ${port}, Secure: ${isPort465}, requireTLS: ${!isPort465}`);
       return this.transporter;
     } catch (transporterErr) {
       console.error('[Email Service] Failed to initialize nodemailer transporter:', transporterErr.message);
@@ -123,98 +186,13 @@ class EmailService {
     }
   }
 
-  initTransporter() {
-    this.getTransporter().catch((err) => {
-      console.error('[Email Service] Background transporter initialization error:', err.message);
-    });
-  }
-
-  async diagnoseEnvironment() {
-    const rawHost = (process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
-    const rawPort = (process.env.SMTP_PORT || process.env.EMAIL_PORT || '587').trim();
-    const rawUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
-    const rawPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
-    const rawFrom = (process.env.EMAIL_FROM || process.env.SMTP_FROM || (rawUser ? `"NEXA Security" <${rawUser}>` : '')).trim();
-
-    const port = parseInt(rawPort, 10) || 587;
-    const secure = port === 465;
-    const requireTLS = !secure;
-    const dnsResult = await this.resolveIPv4(rawHost);
-
-    console.log('[Email Diagnostic] Gmail SMTP Settings:');
-    console.log(`  SMTP host: ${rawHost}`);
-    console.log(`  SMTP port: ${port}`);
-    console.log(`  SMTP secure: ${secure}`);
-    console.log(`  STARTTLS required: ${requireTLS}`);
-    console.log(`  SMTP address family: IPv4`);
-    console.log(`  SMTP resolved address: ${dnsResult.ip} (${dnsResult.source})`);
-    console.log(`  SMTP user: ${rawUser ? rawUser : 'NOT CONFIGURED'}`);
-    console.log(`  SMTP pass: ${rawPass ? 'configured [REDACTED]' : 'NOT CONFIGURED (Waiting for Google App Password)'}`);
-    console.log(`  EMAIL_FROM: ${rawFrom ? rawFrom : 'NOT CONFIGURED'}`);
-
-    return {
-      host: rawHost,
-      resolvedAddress: dnsResult.ip,
-      port,
-      secure,
-      requireTLS,
-      family: 4,
-      hostConfigured: !!rawHost,
-      userConfigured: !!rawUser,
-      passwordConfigured: !!rawPass,
-      fromConfigured: !!rawFrom
-    };
-  }
-
-  async verifyConnection() {
-    const transporter = await this.getTransporter();
-    if (!transporter) {
-      return {
-        configured: false,
-        verified: false,
-        error: 'SMTP credentials not configured in environment (SMTP_HOST, SMTP_USER, SMTP_PASS)'
-      };
-    }
-    try {
-      await transporter.verify();
-      const rawHost = process.env.SMTP_HOST || 'smtp.gmail.com';
-      const resolvedAddress = this.currentConfig?.resolvedAddress || 'IPv4';
-      const port = this.currentConfig?.port || 465;
-      const secure = this.currentConfig?.secure !== undefined ? this.currentConfig.secure : true;
-
-      console.log(`[Email Service] Gmail SMTP transporter verified: Connected and authenticated successfully over IPv4 (${resolvedAddress}:${port})`);
-      return {
-        configured: true,
-        verified: true,
-        host: rawHost,
-        resolvedAddress,
-        port,
-        secure,
-        family: 4
-      };
-    } catch (err) {
-      console.error('[Email Service] Gmail SMTP verification error:', err.message);
-      // Invalidate cache on connection failure to force fresh resolution next time
-      this.resolvedIPv4 = null;
-      this.transporter = null;
-      return {
-        configured: true,
-        verified: false,
-        error: err.message,
-        code: err.code,
-        responseCode: err.responseCode
-      };
-    }
-  }
-
   /**
-   * Tests raw TCP socket connectivity to a target IPv4 address and port.
+   * Tests raw TCP socket connectivity (used for diagnostics).
    * @param {string} targetIp
    * @param {number} targetPort
-   * @param {number} [timeoutMs=7000]
-   * @returns {Promise<{ success: boolean, targetIp: string, targetPort: number, elapsedMs: number, error: string | null, code: string | null }>}
+   * @param {number} [timeoutMs=5000]
    */
-  async testTcpConnectivity(targetIp, targetPort, timeoutMs = 7000) {
+  async testTcpConnectivity(targetIp, targetPort, timeoutMs = 5000) {
     const startTime = Date.now();
     return new Promise((resolve) => {
       let isSettled = false;
@@ -257,92 +235,267 @@ class EmailService {
     });
   }
 
+  /**
+   * Core unified email dispatcher supporting Resend HTTPS API and SMTP fallback.
+   * @param {Object} options
+   * @param {string} [options.from]
+   * @param {string | string[]} options.to
+   * @param {string} options.subject
+   * @param {string} options.html
+   * @param {string} [options.text]
+   * @returns {Promise<{ success: boolean, messageId?: string, provider: string, fallback?: boolean, [key: string]: any }>}
+   */
+  async sendMail({ from, to, subject, html, text }) {
+    const provider = this.getProvider();
+    const fromAddress = from || this.getDefaultFromAddress();
+
+    if (provider === 'resend') {
+      const resend = this.getResendClient();
+      if (!resend) {
+        const err = new Error('[Email Service Error]: Cannot dispatch email via Resend HTTPS API. RESEND_API_KEY is not configured in environment variables.');
+        err.code = 'NO_EMAIL_CONFIG';
+        err.provider = 'resend';
+        console.error('[Email Service] Missing RESEND_API_KEY. Configure RESEND_API_KEY in environment.');
+        throw err;
+      }
+
+      const recipients = Array.isArray(to) ? to : [to];
+      console.log(`[Email Service] Dispatching email via Resend HTTPS API to recipient: ${recipients.join(', ')}...`);
+
+      try {
+        const { data, error } = await resend.emails.send({
+          from: fromAddress,
+          to: recipients,
+          subject,
+          html,
+          text
+        });
+
+        if (error) {
+          const safeError = new Error(`Resend API Error: ${error.message || error.name || 'Email delivery failed'}`);
+          safeError.name = error.name || 'ResendApiError';
+          safeError.statusCode = error.statusCode;
+          safeError.provider = 'resend';
+          console.error('[Email Service] Resend HTTPS API Error:', {
+            name: error.name,
+            statusCode: error.statusCode,
+            message: error.message
+          });
+          throw safeError;
+        }
+
+        console.log(`[Email Service] Email successfully sent via Resend HTTPS API (Message ID: ${data?.id || 'OK'})`);
+        return {
+          success: true,
+          messageId: data?.id || null,
+          provider: 'resend',
+          data
+        };
+      } catch (err) {
+        if (err.provider !== 'resend') {
+          console.error('[Email Service] Unexpected Resend delivery error:', err.message);
+        }
+        throw err;
+      }
+    }
+
+    // SMTP Fallback (Development / Legacy)
+    const transporter = await this.getTransporter();
+    if (!transporter) {
+      const err = new Error('[Email Service Error]: Cannot dispatch email via SMTP. No SMTP credentials configured in environment variables (SMTP_HOST, SMTP_USER, SMTP_PASS).');
+      err.code = 'NO_SMTP_CONFIG';
+      err.provider = 'smtp';
+      console.error('[Email Service] Missing SMTP credentials.');
+      throw err;
+    }
+
+    console.log(`[Email Service] Dispatching email via SMTP to recipient: ${Array.isArray(to) ? to.join(', ') : to}...`);
+    try {
+      const info = await transporter.sendMail({
+        from: fromAddress,
+        to,
+        subject,
+        text,
+        html
+      });
+
+      console.log(`[Email Service] Email sent via SMTP (Message ID: ${info.messageId})`);
+      return {
+        success: true,
+        messageId: info.messageId,
+        provider: 'smtp',
+        accepted: info.accepted,
+        response: info.response
+      };
+    } catch (err) {
+      if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'ESOCKET' || err.code === 'ENETUNREACH') {
+        this.resolvedIPv4 = null;
+        this.transporter = null;
+      }
+      console.error('[Email Service] SMTP Delivery Error:', {
+        name: err.name,
+        code: err.code,
+        message: err.message
+      });
+      throw err;
+    }
+  }
+
+  /**
+   * Diagnostic summary without exposing secrets.
+   */
+  async diagnoseEnvironment() {
+    const provider = this.getProvider();
+    const emailFrom = (process.env.EMAIL_FROM || process.env.SMTP_FROM || '').trim();
+    const effectiveFrom = this.getDefaultFromAddress();
+
+    if (provider === 'resend') {
+      const apiKey = (process.env.RESEND_API_KEY || '').trim();
+      const apiKeyConfigured = Boolean(apiKey && apiKey.length > 5);
+
+      console.log('[Email Diagnostic] Resend HTTPS Email Settings:');
+      console.log(`  Email Provider: Resend`);
+      console.log(`  Email API: HTTPS`);
+      console.log(`  EMAIL_FROM: ${emailFrom ? emailFrom : `Using default (${effectiveFrom})`}`);
+      console.log(`  RESEND_API_KEY: ${apiKeyConfigured ? 'configured [REDACTED]' : 'NOT CONFIGURED'}`);
+
+      return {
+        provider: 'resend',
+        transport: 'https',
+        configured: apiKeyConfigured,
+        apiKeyConfigured,
+        senderConfigured: Boolean(emailFrom),
+        from: effectiveFrom
+      };
+    }
+
+    // SMTP Diagnostic
+    const rawHost = (process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
+    const rawUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+    const rawPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
+
+    console.log('[Email Diagnostic] SMTP Settings:');
+    console.log(`  Email Provider: SMTP`);
+    console.log(`  SMTP host: ${rawHost}`);
+    console.log(`  SMTP port: 587`);
+    console.log(`  SMTP secure: false`);
+    console.log(`  STARTTLS required: true`);
+    console.log(`  SMTP user: ${rawUser ? rawUser : 'NOT CONFIGURED'}`);
+    console.log(`  SMTP pass: ${rawPass ? 'configured [REDACTED]' : 'NOT CONFIGURED'}`);
+    console.log(`  EMAIL_FROM: ${emailFrom ? emailFrom : 'NOT CONFIGURED'}`);
+
+    return {
+      provider: 'smtp',
+      transport: 'smtp',
+      host: rawHost,
+      port: 587,
+      secure: false,
+      requireTLS: true,
+      userConfigured: Boolean(rawUser),
+      passwordConfigured: Boolean(rawPass),
+      senderConfigured: Boolean(emailFrom),
+      from: effectiveFrom
+    };
+  }
+
+  /**
+   * Health and verification check without generating test emails.
+   */
+  async verifyConnection() {
+    const provider = this.getProvider();
+
+    if (provider === 'resend') {
+      const apiKey = (process.env.RESEND_API_KEY || '').trim();
+      const apiKeyConfigured = Boolean(apiKey && apiKey.length > 5);
+      const emailFrom = (process.env.EMAIL_FROM || process.env.SMTP_FROM || '').trim();
+
+      return {
+        status: apiKeyConfigured ? 'configured' : 'pending_configuration',
+        provider: 'resend',
+        transport: 'https',
+        configured: apiKeyConfigured,
+        verified: apiKeyConfigured,
+        senderConfigured: Boolean(emailFrom),
+        apiKeyConfigured
+      };
+    }
+
+    // Legacy SMTP check
+    const transporter = await this.getTransporter();
+    if (!transporter) {
+      return {
+        status: 'pending_configuration',
+        provider: 'smtp',
+        transport: 'smtp',
+        configured: false,
+        verified: false,
+        error: 'SMTP credentials not configured in environment'
+      };
+    }
+
+    try {
+      await transporter.verify();
+      return {
+        status: 'configured',
+        provider: 'smtp',
+        transport: 'smtp',
+        configured: true,
+        verified: true
+      };
+    } catch (err) {
+      return {
+        status: 'error',
+        provider: 'smtp',
+        transport: 'smtp',
+        configured: true,
+        verified: false,
+        error: err.message
+      };
+    }
+  }
+
+  /**
+   * Safe startup diagnostics check.
+   */
   async verifyOnStartup() {
     try {
+      const provider = this.getProvider();
       console.log('\n========================================================================');
-      console.log('              NEXA BACKEND GMAIL SMTP STARTUP CHECK                     ');
+      console.log('              NEXA BACKEND EMAIL SERVICE STARTUP CHECK                  ');
       console.log('========================================================================');
-      const host = (process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
-      const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10) || 587;
-      const user = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
-      const pass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
-      const secure = port === 465;
-      const requireTLS = !secure;
+      console.log(`Email service file/version: emailService.js (v2.0.0)`);
+      console.log(`Email provider: ${provider === 'resend' ? 'Resend' : 'SMTP'}`);
+      console.log(`Email API: ${provider === 'resend' ? 'HTTPS' : 'SMTP STARTTLS'}`);
 
-      console.log(`Email service file/version: emailService.js (v1.0.0)`);
-      console.log(`SMTP implementation: Nodemailer with Forced IPv4 Pre-Resolution (STARTTLS)`);
-      console.log(`IPv4 resolver enabled: true`);
+      if (provider === 'resend') {
+        const apiKey = (process.env.RESEND_API_KEY || '').trim();
+        const apiKeyConfigured = Boolean(apiKey && apiKey.length > 5);
+        const emailFrom = (process.env.EMAIL_FROM || process.env.SMTP_FROM || '').trim();
+        const effectiveFrom = this.getDefaultFromAddress();
 
-      if (!pass || !user) {
-        console.log('ℹ️  Gmail SMTP Status: AWAITING GOOGLE APP PASSWORD / USER');
-        console.log(`SMTP host: ${host}`);
-        console.log(`SMTP port: ${port}`);
-        console.log(`SMTP secure: ${secure}`);
-        console.log(`STARTTLS required: ${requireTLS}`);
-        console.log(`SMTP address family: IPv4`);
-        console.log(`Account: ${user || 'NOT CONFIGURED'}`);
-        console.log('SMTP_PASS is currently empty or unconfigured.');
-        console.log('👉 Create a 16-character Google App Password at https://myaccount.google.com/apppasswords');
-        console.log('   and set SMTP_PASS in your environment.');
-        console.log('========================================================================\n');
-        return;
-      }
+        console.log(`Email sender configured: ${Boolean(emailFrom)}`);
+        console.log(`Sender address: ${effectiveFrom}`);
+        console.log(`API key configured: ${apiKeyConfigured}`);
 
-      const dnsResult = await this.resolveIPv4(host);
-      console.log('ℹ️  Gmail SMTP Status: CONFIGURATION DETECTED');
-      console.log(`SMTP host: ${host}`);
-      console.log(`SMTP port: ${port}`);
-      console.log(`SMTP secure: ${secure}`);
-      console.log(`STARTTLS required: ${requireTLS}`);
-      console.log(`SMTP address family: IPv4`);
-      console.log(`SMTP resolved address: ${dnsResult.ip}`);
-      console.log(`Resolved SMTP address: ${dnsResult.ip}`);
-      console.log(`Resolved address family: IPv4`);
-      console.log(`Transport host: ${dnsResult.ip}`);
-      console.log(`Transport port: ${port}`);
-      console.log(`Account: ${user}`);
-
-      // Safe raw TCP connectivity probe to the resolved IPv4 address on BOTH port 465 and port 587
-      console.log(`\n--- Raw TCP Diagnostic Check (Port 465 vs 587) ---`);
-      console.log(`Testing TCP connectivity to ${dnsResult.ip}:465 (timeout: 7000ms)...`);
-      const tcpResult465 = await this.testTcpConnectivity(dnsResult.ip, 465, 7000);
-      console.log(`  Port 465 Target: ${dnsResult.ip}:465`);
-      console.log(`  Port 465 Status: ${tcpResult465.success ? 'SUCCESS (Connected)' : 'FAILED'}`);
-      console.log(`  Port 465 Elapsed: ${tcpResult465.elapsedMs}ms`);
-      if (!tcpResult465.success) {
-        console.log(`  Port 465 Error Code: ${tcpResult465.code || 'UNKNOWN'}`);
-        console.log(`  Port 465 Error Msg: ${tcpResult465.error || 'Connection failed'}`);
-      }
-
-      console.log(`Testing TCP connectivity to ${dnsResult.ip}:587 (timeout: 7000ms)...`);
-      const tcpResult587 = await this.testTcpConnectivity(dnsResult.ip, 587, 7000);
-      console.log(`  Port 587 Target: ${dnsResult.ip}:587`);
-      console.log(`  Port 587 Status: ${tcpResult587.success ? 'SUCCESS (Connected)' : 'FAILED'}`);
-      console.log(`  Port 587 Elapsed: ${tcpResult587.elapsedMs}ms`);
-      if (!tcpResult587.success) {
-        console.log(`  Port 587 Error Code: ${tcpResult587.code || 'UNKNOWN'}`);
-        console.log(`  Port 587 Error Msg: ${tcpResult587.error || 'Connection failed'}`);
-      }
-      console.log(`---------------------------------------------------\n`);
-
-      console.log('Testing Gmail SMTP connection...');
-
-      const res = await this.verifyConnection();
-      if (res.verified) {
-        console.log('SMTP verification successful');
-        console.log('✅ SMTP connection successful! Ready to send real verification and reset emails.');
-      } else {
-        if (res.code === 'EAUTH' || res.responseCode === 535) {
-          console.error('❌ SMTP Authentication Failure:');
-          console.error('   Gmail rejected credentials (535 BadCredentials).');
-          console.error('   Please ensure you generate a 16-character Google App Password (not your regular Gmail password).');
+        if (!apiKeyConfigured) {
+          console.log('ℹ️  Resend Status: AWAITING RESEND_API_KEY in environment.');
+          console.log('👉 Obtain an API key from https://resend.com/api-keys and configure RESEND_API_KEY in Render.');
         } else {
-          console.error(`❌ SMTP Connection Error: ${res.error}`);
+          console.log('✅ Resend HTTPS provider configured and ready for email delivery.');
         }
+      } else {
+        const host = (process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
+        const user = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+        const pass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
+
+        console.log(`SMTP host: ${host}`);
+        console.log(`SMTP port: 587`);
+        console.log(`SMTP user configured: ${Boolean(user)}`);
+        console.log(`SMTP pass configured: ${Boolean(pass)}`);
       }
       console.log('========================================================================\n');
     } catch (startupErr) {
-      console.error('[Email Service] Unexpected error during SMTP startup check:', startupErr?.message || startupErr);
+      console.error('[Email Service] Unexpected error during email startup check:', startupErr?.message || startupErr);
     }
   }
 
@@ -355,7 +508,7 @@ class EmailService {
    * @param {number} [options.expiresInMinutes=30] - Expiration duration in minutes
    */
   async sendPasswordResetEmail({ to, name, resetUrl, expiresInMinutes = 30 }) {
-    const fromAddress = process.env.EMAIL_FROM || process.env.SMTP_FROM || (process.env.SMTP_USER ? `"NEXA Security" <${process.env.SMTP_USER}>` : '"NEXA Security" <noreply@nexa.chat>');
+    const fromAddress = this.getDefaultFromAddress();
     const recipientName = name || 'NEXA User';
 
     const textContent = `
@@ -481,7 +634,7 @@ The NEXA Team
       <div class="logo-badge">N</div>
       <h1 class="title">Reset Your Password</h1>
       <p class="lead">
-        Hi <strong style="color: #ffffff;">${recipientName}</strong>, we received a request to reset your password for your NEXA account. Click the button below to choose a new password.
+        Hi <strong style="color: #ffffff;">${recipientName}</strong>, we received a request to reset your NEXA account password. Click below to choose a new password.
       </p>
 
       <div class="btn-container">
@@ -509,59 +662,13 @@ The NEXA Team
 </html>
     `.trim();
 
-    // 1. Check if SMTP transporter is configured
-    const transporter = await this.getTransporter();
-    if (!transporter) {
-      const errMessage = '[Email Service Error]: Cannot dispatch password reset email. No SMTP email provider credentials configured in environment variables (EMAIL_HOST / SMTP_HOST, EMAIL_USER / SMTP_USER, EMAIL_PASSWORD / SMTP_PASS).';
-      console.error(errMessage);
-      throw new Error(errMessage);
-    }
-
-    // 2. Dispatch email via configured SMTP transporter
-    console.log(`[Email Service] Attempting to dispatch password reset email to ${to}...`);
-    try {
-      const info = await transporter.sendMail({
-        from: fromAddress,
-        to,
-        subject: 'NEXA Password Reset',
-        text: textContent,
-        html: htmlContent
-      });
-
-      const isAccepted = Array.isArray(info.accepted) && info.accepted.length > 0;
-      const isRejected = Array.isArray(info.rejected) && info.rejected.length > 0;
-
-      console.log('[Email Service] Email provider response received:');
-      console.log(`  Message ID: ${info.messageId}`);
-      console.log(`  Accepted by provider: ${isAccepted ? info.accepted.join(', ') : 'none'}`);
-      console.log(`  Rejected by provider: ${isRejected ? info.rejected.join(', ') : 'none'}`);
-      console.log(`  Provider server response: ${info.response || 'OK'}`);
-
-      if (isRejected && !isAccepted) {
-        throw new Error(`Email provider rejected delivery to ${info.rejected.join(', ')}. Provider response: ${info.response}`);
-      }
-
-      return {
-        success: true,
-        accepted: isAccepted,
-        messageId: info.messageId,
-        providerResponse: info.response
-      };
-    } catch (err) {
-      if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'ESOCKET' || err.code === 'ENETUNREACH') {
-        this.resolvedIPv4 = null;
-        this.transporter = null;
-      }
-      console.error('[Email Service] SMTP Password Reset Delivery Error:', {
-        name: err.name,
-        code: err.code,
-        command: err.command,
-        response: err.response,
-        responseCode: err.responseCode,
-        message: err.message
-      });
-      throw err;
-    }
+    return await this.sendMail({
+      from: fromAddress,
+      to,
+      subject: 'NEXA Password Reset',
+      text: textContent,
+      html: htmlContent
+    });
   }
 
   /**
@@ -572,7 +679,7 @@ The NEXA Team
    * @param {string} options.verificationUrl - Full email verification URL
    */
   async sendVerificationEmail({ to, name, verificationUrl }) {
-    const fromAddress = process.env.EMAIL_FROM || process.env.SMTP_FROM || (process.env.SMTP_USER ? `"NEXA Security" <${process.env.SMTP_USER}>` : '"NEXA Security" <noreply@nexa.chat>');
+    const fromAddress = this.getDefaultFromAddress();
     const recipientName = name || 'NEXA User';
 
     const textContent = `
@@ -723,41 +830,26 @@ The NEXA Team
 </html>
     `.trim();
 
-    const transporter = await this.getTransporter();
-    if (transporter) {
-      try {
-        const info = await transporter.sendMail({
-          from: fromAddress,
-          to,
-          subject: 'Verify Your NEXA Email Address',
-          text: textContent,
-          html: htmlContent
-        });
-        console.log(`[Email Service] Verification email sent to ${to}: ${info.messageId}`);
-        return { success: true, messageId: info.messageId };
-      } catch (err) {
-        if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'ESOCKET' || err.code === 'ENETUNREACH') {
-          this.resolvedIPv4 = null;
-          this.transporter = null;
-        }
-        console.error('[Email Service] SMTP Verification Delivery Error:', {
-          name: err.name,
-          code: err.code,
-          command: err.command,
-          response: err.response,
-          responseCode: err.responseCode,
-          message: err.message
-        });
+    try {
+      const result = await this.sendMail({
+        from: fromAddress,
+        to,
+        subject: 'Verify Your NEXA Email Address',
+        text: textContent,
+        html: htmlContent
+      });
+      return result;
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('\n================== [NEXA EMAIL VERIFICATION FALLBACK] ==================');
+        console.log(`To: ${to} (${recipientName})`);
+        console.log(`Subject: Verify Your NEXA Email Address`);
+        console.log(`Verification URL: ${verificationUrl}`);
+        console.log('========================================================================\n');
+        return { success: true, fallback: true };
       }
+      throw err;
     }
-
-    console.log('\n================== [NEXA EMAIL VERIFICATION] ==================');
-    console.log(`To: ${to} (${recipientName})`);
-    console.log(`Subject: Verify Your NEXA Email Address`);
-    console.log(`Verification URL: ${verificationUrl}`);
-    console.log('=================================================================\n');
-
-    return { success: true, fallback: true };
   }
 
   /**
@@ -769,7 +861,7 @@ The NEXA Team
    * @param {number} [options.expiresInMinutes=30] - Token expiration in minutes
    */
   async sendEmailChangeConfirmation({ to, name, confirmationUrl, expiresInMinutes = 30 }) {
-    const fromAddress = process.env.EMAIL_FROM || process.env.SMTP_FROM || (process.env.SMTP_USER ? `"NEXA Security" <${process.env.SMTP_USER}>` : '"NEXA Security" <noreply@nexa.chat>');
+    const fromAddress = this.getDefaultFromAddress();
     const recipientName = name || 'NEXA User';
 
     const textContent = `
@@ -923,43 +1015,13 @@ NEXA Security Team
 </html>
     `.trim();
 
-    const transporter = await this.getTransporter();
-    if (!transporter) {
-      const errMessage = '[Email Service Error]: Cannot dispatch email change confirmation. No SMTP email provider credentials configured in environment variables.';
-      console.error(errMessage);
-      throw new Error(errMessage);
-    }
-
-    try {
-      const info = await transporter.sendMail({
-        from: fromAddress,
-        to,
-        subject: 'Confirm Your New NEXA Account Email Address',
-        text: textContent,
-        html: htmlContent
-      });
-
-      console.log(`[Email Service] Email change confirmation sent to ${to}: ${info.messageId}`);
-      return {
-        success: true,
-        messageId: info.messageId,
-        accepted: info.accepted
-      };
-    } catch (err) {
-      if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'ESOCKET' || err.code === 'ENETUNREACH') {
-        this.resolvedIPv4 = null;
-        this.transporter = null;
-      }
-      console.error('[Email Service] SMTP Email Change Delivery Error:', {
-        name: err.name,
-        code: err.code,
-        command: err.command,
-        response: err.response,
-        responseCode: err.responseCode,
-        message: err.message
-      });
-      throw err;
-    }
+    return await this.sendMail({
+      from: fromAddress,
+      to,
+      subject: 'Confirm Your New NEXA Account Email Address',
+      text: textContent,
+      html: htmlContent
+    });
   }
 
   /**
@@ -967,7 +1029,7 @@ NEXA Security Team
    * @param {Object} options
    */
   async sendSecurityNotificationEmail({ to, name, alertTitle, details, timestamp = new Date() }) {
-    const fromAddress = process.env.EMAIL_FROM || process.env.SMTP_FROM || (process.env.SMTP_USER ? `"NEXA Security" <${process.env.SMTP_USER}>` : '"NEXA Security" <noreply@nexa.chat>');
+    const fromAddress = this.getDefaultFromAddress();
     const recipientName = name || 'NEXA User';
 
     const textContent = `
@@ -1013,33 +1075,25 @@ NEXA Security Team
 </html>
     `.trim();
 
-    const transporter = await this.getTransporter();
-    if (transporter) {
-      try {
-        await transporter.sendMail({
-          from: fromAddress,
-          to,
-          subject: `NEXA Security Alert: ${alertTitle}`,
-          text: textContent,
-          html: htmlContent
-        });
-        return { success: true };
-      } catch (err) {
-        if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'ESOCKET' || err.code === 'ENETUNREACH') {
-          this.resolvedIPv4 = null;
-          this.transporter = null;
-        }
-        console.error('[Email Service] Failed to send security email via SMTP:', err.message);
+    try {
+      return await this.sendMail({
+        from: fromAddress,
+        to,
+        subject: `NEXA Security Alert: ${alertTitle}`,
+        text: textContent,
+        html: htmlContent
+      });
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('\n================== [NEXA SECURITY ALERT FALLBACK] ==================');
+        console.log(`To: ${to} (${recipientName})`);
+        console.log(`Alert: ${alertTitle}`);
+        console.log(`Details: ${details}`);
+        console.log('====================================================================\n');
+        return { success: true, fallback: true };
       }
+      return { success: false, error: err.message };
     }
-
-    console.log('\n================== [NEXA SECURITY ALERT] ==================');
-    console.log(`To: ${to} (${recipientName})`);
-    console.log(`Alert: ${alertTitle}`);
-    console.log(`Details: ${details}`);
-    console.log('===========================================================\n');
-
-    return { success: true, fallback: true };
   }
 }
 

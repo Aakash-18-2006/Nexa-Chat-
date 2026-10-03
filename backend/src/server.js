@@ -196,51 +196,35 @@ const handleHealthCheck = (req, res) => {
 
 app.get('/api/health', handleHealthCheck);
 app.get('/health', handleHealthCheck);
-app.get('/api/health/smtp', async (req, res) => {
+const handleEmailHealthCheck = async (req, res) => {
   const status = await emailService.verifyConnection();
-  const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10);
-  const user = process.env.SMTP_USER || process.env.EMAIL_USER || '';
-  const host = process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com';
-  const resolvedAddress = status.resolvedAddress || (await emailService.resolveIPv4(host)).ip;
-  const [tcpCheck465, tcpCheck587] = await Promise.all([
-    emailService.testTcpConnectivity(resolvedAddress, 465, 5000),
-    emailService.testTcpConnectivity(resolvedAddress, 587, 5000)
-  ]);
+  const provider = emailService.getProvider();
+  const emailFrom = process.env.EMAIL_FROM || process.env.SMTP_FROM || '';
 
-  res.status(status.verified ? 200 : 503).json({
-    status: status.verified ? 'ok' : 'pending_configuration',
+  const responseData = {
+    status: status.verified ? 'configured' : 'pending_configuration',
+    provider,
+    transport: provider === 'resend' ? 'https' : 'smtp',
+    senderConfigured: Boolean(emailFrom),
+    apiKeyConfigured: provider === 'resend' ? Boolean(process.env.RESEND_API_KEY) : false,
+    from: emailService.getDefaultFromAddress(),
     configured: status.configured,
-    verified: status.verified,
-    host,
-    port,
-    secure: port === 465,
-    requireTLS: port !== 465,
-    resolvedAddress,
-    family: 4,
-    transportHost: resolvedAddress,
-    tcpConnectivity: {
-      port465: {
-        success: tcpCheck465.success,
-        targetIp: tcpCheck465.targetIp,
-        targetPort: 465,
-        elapsedMs: tcpCheck465.elapsedMs,
-        error: tcpCheck465.error,
-        code: tcpCheck465.code
-      },
-      port587: {
-        success: tcpCheck587.success,
-        targetIp: tcpCheck587.targetIp,
-        targetPort: 587,
-        elapsedMs: tcpCheck587.elapsedMs,
-        error: tcpCheck587.error,
-        code: tcpCheck587.code
-      }
-    },
-    user: user ? user : null,
-    from: process.env.EMAIL_FROM || process.env.SMTP_FROM || (user ? `"NEXA Security" <${user}>` : null),
-    error: status.error || null
-  });
-});
+    verified: status.verified
+  };
+
+  if (provider === 'smtp') {
+    responseData.smtp = {
+      port: 587,
+      secure: false,
+      requireTLS: true
+    };
+  }
+
+  res.status(status.verified ? 200 : 503).json(responseData);
+};
+
+app.get('/api/health/email', handleEmailHealthCheck);
+app.get('/api/health/smtp', handleEmailHealthCheck);
 app.get('/', (req, res) => {
   res.status(200).json({
     status: 'ok',

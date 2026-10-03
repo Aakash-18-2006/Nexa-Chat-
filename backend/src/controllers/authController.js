@@ -976,7 +976,7 @@ const forgotPassword = async (req, res) => {
         console.error('   Action: Ensure SMTP_PASS is a 16-character Google App Password (not your regular Gmail password).');
       } else if (emailErr.code === 'ECONNREFUSED' || emailErr.code === 'ETIMEDOUT' || emailErr.code === 'ESOCKET' || emailErr.code === 'ENETUNREACH') {
         const configuredHost = process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com';
-        const configuredPort = process.env.SMTP_PORT || process.env.EMAIL_PORT || '465';
+        const configuredPort = process.env.SMTP_PORT || process.env.EMAIL_PORT || '587';
         console.error('[Forgot Password Server Diagnostic - Category: SMTP Connection Failure]');
         console.error(`   Reason: Failed to reach ${configuredHost}:${configuredPort} (${emailErr.code || emailErr.message}).`);
         console.error(`   Action: Check internet access and ensure outbound port ${configuredPort} with IPv4 is permitted.`);
