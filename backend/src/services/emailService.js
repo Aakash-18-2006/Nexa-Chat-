@@ -17,18 +17,12 @@ class EmailService {
   /**
    * Identifies the active email delivery provider based on environment configuration.
    * Defaults to 'resend' (HTTPS API) for production.
+   * Legacy SMTP is only selected when EMAIL_PROVIDER is explicitly set to 'smtp'.
    * @returns {'resend' | 'smtp'}
    */
   getProvider() {
     const configuredProvider = (process.env.EMAIL_PROVIDER || '').trim().toLowerCase();
     if (configuredProvider === 'smtp') {
-      return 'smtp';
-    }
-    if (configuredProvider === 'resend' || process.env.RESEND_API_KEY) {
-      return 'resend';
-    }
-    // If SMTP credentials are provided without RESEND_API_KEY and provider wasn't explicitly set to resend
-    if ((process.env.SMTP_PASS || process.env.EMAIL_PASS) && !process.env.RESEND_API_KEY && configuredProvider !== 'resend') {
       return 'smtp';
     }
     return 'resend';
@@ -53,9 +47,9 @@ class EmailService {
   }
 
   /**
-   * Returns the configured sender (FROM) address.
-   * Priority: EMAIL_FROM -> SMTP_FROM -> provider default.
-   * Note: With Resend, sender domain must be verified in Resend dashboard, or onboarding@resend.dev used during testing.
+   * Returns the explicitly configured sender (FROM) address.
+   * Does NOT silently substitute arbitrary sender domains.
+   * Priority: EMAIL_FROM -> SMTP_FROM (or SMTP_USER for legacy SMTP).
    * @returns {string}
    */
   getDefaultFromAddress() {
@@ -65,16 +59,14 @@ class EmailService {
     }
 
     const provider = this.getProvider();
-    if (provider === 'resend') {
-      // Default placeholder for Resend until custom domain is verified in Resend dashboard
-      return 'NEXA Security <onboarding@resend.dev>';
+    if (provider === 'smtp') {
+      const smtpUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+      if (smtpUser) {
+        return `"NEXA Security" <${smtpUser}>`;
+      }
     }
 
-    const smtpUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
-    if (smtpUser) {
-      return `"NEXA Security" <${smtpUser}>`;
-    }
-    return '"NEXA Security" <noreply@nexa.chat>';
+    return '';
   }
 
   /**
@@ -124,7 +116,7 @@ class EmailService {
   }
 
   /**
-   * Initializes or returns the configured Nodemailer transporter for optional/legacy SMTP delivery.
+   * Initializes or returns the configured Nodemailer transporter for explicit SMTP delivery (EMAIL_PROVIDER=smtp).
    * @param {boolean} [forceRefresh=false]
    */
   async getTransporter(forceRefresh = false) {
@@ -236,7 +228,8 @@ class EmailService {
   }
 
   /**
-   * Core unified email dispatcher supporting Resend HTTPS API and SMTP fallback.
+   * Core unified email dispatcher supporting Resend HTTPS API and explicit SMTP fallback.
+   * Requires RESEND_API_KEY and EMAIL_FROM to be configured when using Resend.
    * @param {Object} options
    * @param {string} [options.from]
    * @param {string | string[]} options.to
@@ -250,12 +243,22 @@ class EmailService {
     const fromAddress = from || this.getDefaultFromAddress();
 
     if (provider === 'resend') {
+      const apiKey = (process.env.RESEND_API_KEY || '').trim();
       const resend = this.getResendClient();
-      if (!resend) {
+
+      if (!apiKey) {
         const err = new Error('[Email Service Error]: Cannot dispatch email via Resend HTTPS API. RESEND_API_KEY is not configured in environment variables.');
         err.code = 'NO_EMAIL_CONFIG';
         err.provider = 'resend';
         console.error('[Email Service] Missing RESEND_API_KEY. Configure RESEND_API_KEY in environment.');
+        throw err;
+      }
+
+      if (!fromAddress) {
+        const err = new Error('[Email Service Error]: Cannot dispatch email via Resend HTTPS API. EMAIL_FROM is not configured in environment variables.');
+        err.code = 'NO_EMAIL_CONFIG';
+        err.provider = 'resend';
+        console.error('[Email Service] Missing EMAIL_FROM. Configure EMAIL_FROM with a verified sender address in environment.');
         throw err;
       }
 
@@ -299,7 +302,15 @@ class EmailService {
       }
     }
 
-    // SMTP Fallback (Development / Legacy)
+    // Explicit SMTP Provider (only when EMAIL_PROVIDER=smtp)
+    if (!fromAddress) {
+      const err = new Error('[Email Service Error]: Cannot dispatch email via SMTP. Sender address (EMAIL_FROM or SMTP_USER) is not configured in environment.');
+      err.code = 'NO_SMTP_CONFIG';
+      err.provider = 'smtp';
+      console.error('[Email Service] Missing sender address for SMTP.');
+      throw err;
+    }
+
     const transporter = await this.getTransporter();
     if (!transporter) {
       const err = new Error('[Email Service Error]: Cannot dispatch email via SMTP. No SMTP credentials configured in environment variables (SMTP_HOST, SMTP_USER, SMTP_PASS).');
@@ -352,20 +363,22 @@ class EmailService {
     if (provider === 'resend') {
       const apiKey = (process.env.RESEND_API_KEY || '').trim();
       const apiKeyConfigured = Boolean(apiKey && apiKey.length > 5);
+      const senderConfigured = Boolean(emailFrom);
+      const isConfigured = apiKeyConfigured && senderConfigured;
 
       console.log('[Email Diagnostic] Resend HTTPS Email Settings:');
       console.log(`  Email Provider: Resend`);
       console.log(`  Email API: HTTPS`);
-      console.log(`  EMAIL_FROM: ${emailFrom ? emailFrom : `Using default (${effectiveFrom})`}`);
+      console.log(`  EMAIL_FROM: ${senderConfigured ? emailFrom : 'NOT CONFIGURED'}`);
       console.log(`  RESEND_API_KEY: ${apiKeyConfigured ? 'configured [REDACTED]' : 'NOT CONFIGURED'}`);
 
       return {
         provider: 'resend',
         transport: 'https',
-        configured: apiKeyConfigured,
+        configured: isConfigured,
         apiKeyConfigured,
-        senderConfigured: Boolean(emailFrom),
-        from: effectiveFrom
+        senderConfigured,
+        from: effectiveFrom || null
       };
     }
 
@@ -373,6 +386,7 @@ class EmailService {
     const rawHost = (process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
     const rawUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
     const rawPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
+    const senderConfigured = Boolean(emailFrom || rawUser);
 
     console.log('[Email Diagnostic] SMTP Settings:');
     console.log(`  Email Provider: SMTP`);
@@ -382,7 +396,7 @@ class EmailService {
     console.log(`  STARTTLS required: true`);
     console.log(`  SMTP user: ${rawUser ? rawUser : 'NOT CONFIGURED'}`);
     console.log(`  SMTP pass: ${rawPass ? 'configured [REDACTED]' : 'NOT CONFIGURED'}`);
-    console.log(`  EMAIL_FROM: ${emailFrom ? emailFrom : 'NOT CONFIGURED'}`);
+    console.log(`  EMAIL_FROM: ${senderConfigured ? (emailFrom || rawUser) : 'NOT CONFIGURED'}`);
 
     return {
       provider: 'smtp',
@@ -393,8 +407,8 @@ class EmailService {
       requireTLS: true,
       userConfigured: Boolean(rawUser),
       passwordConfigured: Boolean(rawPass),
-      senderConfigured: Boolean(emailFrom),
-      from: effectiveFrom
+      senderConfigured,
+      from: effectiveFrom || null
     };
   }
 
@@ -408,28 +422,35 @@ class EmailService {
       const apiKey = (process.env.RESEND_API_KEY || '').trim();
       const apiKeyConfigured = Boolean(apiKey && apiKey.length > 5);
       const emailFrom = (process.env.EMAIL_FROM || process.env.SMTP_FROM || '').trim();
+      const senderConfigured = Boolean(emailFrom);
+      const isConfigured = apiKeyConfigured && senderConfigured;
 
       return {
-        status: apiKeyConfigured ? 'configured' : 'pending_configuration',
+        status: isConfigured ? 'configured' : 'pending_configuration',
         provider: 'resend',
         transport: 'https',
-        configured: apiKeyConfigured,
-        verified: apiKeyConfigured,
-        senderConfigured: Boolean(emailFrom),
+        configured: isConfigured,
+        verified: isConfigured,
+        senderConfigured,
         apiKeyConfigured
       };
     }
 
-    // Legacy SMTP check
+    // Explicit SMTP check (only when EMAIL_PROVIDER=smtp)
     const transporter = await this.getTransporter();
-    if (!transporter) {
+    const emailFrom = (process.env.EMAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+    const senderConfigured = Boolean(emailFrom);
+
+    if (!transporter || !senderConfigured) {
       return {
         status: 'pending_configuration',
         provider: 'smtp',
         transport: 'smtp',
         configured: false,
         verified: false,
-        error: 'SMTP credentials not configured in environment'
+        senderConfigured,
+        apiKeyConfigured: false,
+        error: !transporter ? 'SMTP credentials not configured in environment' : 'EMAIL_FROM / SMTP_USER not configured'
       };
     }
 
@@ -440,7 +461,9 @@ class EmailService {
         provider: 'smtp',
         transport: 'smtp',
         configured: true,
-        verified: true
+        verified: true,
+        senderConfigured: true,
+        apiKeyConfigured: false
       };
     } catch (err) {
       return {
@@ -449,6 +472,8 @@ class EmailService {
         transport: 'smtp',
         configured: true,
         verified: false,
+        senderConfigured,
+        apiKeyConfigured: false,
         error: err.message
       };
     }
@@ -463,7 +488,7 @@ class EmailService {
       console.log('\n========================================================================');
       console.log('              NEXA BACKEND EMAIL SERVICE STARTUP CHECK                  ');
       console.log('========================================================================');
-      console.log(`Email service file/version: emailService.js (v2.0.0)`);
+      console.log(`Email service file/version: emailService.js (v2.1.0)`);
       console.log(`Email provider: ${provider === 'resend' ? 'Resend' : 'SMTP'}`);
       console.log(`Email API: ${provider === 'resend' ? 'HTTPS' : 'SMTP STARTTLS'}`);
 
@@ -471,15 +496,20 @@ class EmailService {
         const apiKey = (process.env.RESEND_API_KEY || '').trim();
         const apiKeyConfigured = Boolean(apiKey && apiKey.length > 5);
         const emailFrom = (process.env.EMAIL_FROM || process.env.SMTP_FROM || '').trim();
-        const effectiveFrom = this.getDefaultFromAddress();
+        const senderConfigured = Boolean(emailFrom);
 
-        console.log(`Email sender configured: ${Boolean(emailFrom)}`);
-        console.log(`Sender address: ${effectiveFrom}`);
+        console.log(`Email sender configured: ${senderConfigured}`);
+        console.log(`Sender address: ${senderConfigured ? emailFrom : 'NOT CONFIGURED'}`);
         console.log(`API key configured: ${apiKeyConfigured}`);
 
-        if (!apiKeyConfigured) {
-          console.log('ℹ️  Resend Status: AWAITING RESEND_API_KEY in environment.');
-          console.log('👉 Obtain an API key from https://resend.com/api-keys and configure RESEND_API_KEY in Render.');
+        if (!apiKeyConfigured || !senderConfigured) {
+          console.log('ℹ️  Resend Status: AWAITING CONFIGURATION');
+          if (!apiKeyConfigured) {
+            console.log('👉 Configure RESEND_API_KEY in Render environment (https://resend.com/api-keys).');
+          }
+          if (!senderConfigured) {
+            console.log('👉 Configure EMAIL_FROM with your verified sender domain in Render environment (e.g. "NEXA Security <noreply@yourdomain.com>").');
+          }
         } else {
           console.log('✅ Resend HTTPS provider configured and ready for email delivery.');
         }
@@ -487,11 +517,13 @@ class EmailService {
         const host = (process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
         const user = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
         const pass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
+        const emailFrom = (process.env.EMAIL_FROM || process.env.SMTP_FROM || user).trim();
 
         console.log(`SMTP host: ${host}`);
         console.log(`SMTP port: 587`);
         console.log(`SMTP user configured: ${Boolean(user)}`);
         console.log(`SMTP pass configured: ${Boolean(pass)}`);
+        console.log(`SMTP sender configured: ${Boolean(emailFrom)}`);
       }
       console.log('========================================================================\n');
     } catch (startupErr) {

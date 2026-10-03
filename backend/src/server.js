@@ -199,18 +199,19 @@ app.get('/health', handleHealthCheck);
 const handleEmailHealthCheck = async (req, res) => {
   const status = await emailService.verifyConnection();
   const provider = emailService.getProvider();
-  const emailFrom = process.env.EMAIL_FROM || process.env.SMTP_FROM || '';
+  const emailFrom = (process.env.EMAIL_FROM || process.env.SMTP_FROM || '').trim();
 
   const responseData = {
     status: status.verified ? 'configured' : 'pending_configuration',
     provider,
     transport: provider === 'resend' ? 'https' : 'smtp',
     senderConfigured: Boolean(emailFrom),
-    apiKeyConfigured: provider === 'resend' ? Boolean(process.env.RESEND_API_KEY) : false,
-    from: emailService.getDefaultFromAddress(),
-    configured: status.configured,
-    verified: status.verified
+    apiKeyConfigured: provider === 'resend' ? Boolean(process.env.RESEND_API_KEY) : false
   };
+
+  if (emailFrom) {
+    responseData.from = emailFrom;
+  }
 
   if (provider === 'smtp') {
     responseData.smtp = {
