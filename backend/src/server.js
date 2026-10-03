@@ -198,14 +198,20 @@ app.get('/api/health', handleHealthCheck);
 app.get('/health', handleHealthCheck);
 app.get('/api/health/smtp', async (req, res) => {
   const status = await emailService.verifyConnection();
+  const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '465', 10);
+  const user = process.env.SMTP_USER || process.env.EMAIL_USER || '';
   res.status(status.verified ? 200 : 503).json({
     status: status.verified ? 'ok' : 'pending_configuration',
     configured: status.configured,
     verified: status.verified,
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
-    user: process.env.SMTP_USER || 'akasuran6@gmail.com',
-    from: process.env.EMAIL_FROM || '"NEXA Security" <akasuran6@gmail.com>',
+    host: process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port,
+    secure: port === 465,
+    resolvedAddress: status.resolvedAddress || null,
+    family: 4,
+    transportHost: status.resolvedAddress || null,
+    user: user ? user : null,
+    from: process.env.EMAIL_FROM || process.env.SMTP_FROM || (user ? `"NEXA Security" <${user}>` : null),
     error: status.error || null
   });
 });
