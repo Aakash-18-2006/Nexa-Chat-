@@ -65,7 +65,7 @@ class EmailService {
    */
   async getTransporter(forceRefresh = false) {
     const rawHost = (process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
-    const rawPort = (process.env.SMTP_PORT || process.env.EMAIL_PORT || '465').trim();
+    const rawPort = (process.env.SMTP_PORT || process.env.EMAIL_PORT || '587').trim();
     const rawUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
     const rawPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
 
@@ -79,7 +79,7 @@ class EmailService {
     }
 
     try {
-      const port = parseInt(rawPort, 10) || 465;
+      const port = parseInt(rawPort, 10) || 587;
       const isPort465 = port === 465;
       const dnsResult = await this.resolveIPv4(rawHost);
 
@@ -91,7 +91,8 @@ class EmailService {
         maxMessages: 100,
         host: dnsResult.ip,
         port,
-        secure: isPort465,
+        secure: isPort465, // false for port 587 (STARTTLS), true for 465
+        requireTLS: !isPort465, // Enforce STARTTLS encryption upgrade on port 587
         auth: { user: rawUser, pass: rawPass },
         tls: {
           servername: rawHost,
@@ -108,11 +109,12 @@ class EmailService {
         resolvedAddress: dnsResult.ip,
         port,
         secure: isPort465,
+        requireTLS: !isPort465,
         family: 4,
         source: dnsResult.source
       };
 
-      console.log(`[Email Service] Configured Gmail SMTP transporter -> Host: ${rawHost} (IPv4: ${dnsResult.ip}), Port: ${port}, Secure: ${isPort465}`);
+      console.log(`[Email Service] Configured Gmail SMTP transporter -> Host: ${rawHost} (IPv4: ${dnsResult.ip}), Port: ${port}, Secure: ${isPort465}, requireTLS: ${!isPort465}`);
       return this.transporter;
     } catch (transporterErr) {
       console.error('[Email Service] Failed to initialize nodemailer transporter:', transporterErr.message);
@@ -129,19 +131,21 @@ class EmailService {
 
   async diagnoseEnvironment() {
     const rawHost = (process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
-    const rawPort = (process.env.SMTP_PORT || process.env.EMAIL_PORT || '465').trim();
+    const rawPort = (process.env.SMTP_PORT || process.env.EMAIL_PORT || '587').trim();
     const rawUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
     const rawPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
     const rawFrom = (process.env.EMAIL_FROM || process.env.SMTP_FROM || (rawUser ? `"NEXA Security" <${rawUser}>` : '')).trim();
 
-    const port = parseInt(rawPort, 10) || 465;
+    const port = parseInt(rawPort, 10) || 587;
     const secure = port === 465;
+    const requireTLS = !secure;
     const dnsResult = await this.resolveIPv4(rawHost);
 
     console.log('[Email Diagnostic] Gmail SMTP Settings:');
     console.log(`  SMTP host: ${rawHost}`);
     console.log(`  SMTP port: ${port}`);
     console.log(`  SMTP secure: ${secure}`);
+    console.log(`  STARTTLS required: ${requireTLS}`);
     console.log(`  SMTP address family: IPv4`);
     console.log(`  SMTP resolved address: ${dnsResult.ip} (${dnsResult.source})`);
     console.log(`  SMTP user: ${rawUser ? rawUser : 'NOT CONFIGURED'}`);
@@ -153,6 +157,7 @@ class EmailService {
       resolvedAddress: dnsResult.ip,
       port,
       secure,
+      requireTLS,
       family: 4,
       hostConfigured: !!rawHost,
       userConfigured: !!rawUser,
@@ -258,19 +263,22 @@ class EmailService {
       console.log('              NEXA BACKEND GMAIL SMTP STARTUP CHECK                     ');
       console.log('========================================================================');
       const host = (process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
-      const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '465', 10) || 465;
+      const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10) || 587;
       const user = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
       const pass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
+      const secure = port === 465;
+      const requireTLS = !secure;
 
       console.log(`Email service file/version: emailService.js (v1.0.0)`);
-      console.log(`SMTP implementation: Nodemailer with Forced IPv4 Pre-Resolution`);
+      console.log(`SMTP implementation: Nodemailer with Forced IPv4 Pre-Resolution (STARTTLS)`);
       console.log(`IPv4 resolver enabled: true`);
 
       if (!pass || !user) {
         console.log('ℹ️  Gmail SMTP Status: AWAITING GOOGLE APP PASSWORD / USER');
         console.log(`SMTP host: ${host}`);
         console.log(`SMTP port: ${port}`);
-        console.log(`SMTP secure: ${port === 465}`);
+        console.log(`SMTP secure: ${secure}`);
+        console.log(`STARTTLS required: ${requireTLS}`);
         console.log(`SMTP address family: IPv4`);
         console.log(`Account: ${user || 'NOT CONFIGURED'}`);
         console.log('SMTP_PASS is currently empty or unconfigured.');
@@ -284,7 +292,8 @@ class EmailService {
       console.log('ℹ️  Gmail SMTP Status: CONFIGURATION DETECTED');
       console.log(`SMTP host: ${host}`);
       console.log(`SMTP port: ${port}`);
-      console.log(`SMTP secure: ${port === 465}`);
+      console.log(`SMTP secure: ${secure}`);
+      console.log(`STARTTLS required: ${requireTLS}`);
       console.log(`SMTP address family: IPv4`);
       console.log(`SMTP resolved address: ${dnsResult.ip}`);
       console.log(`Resolved SMTP address: ${dnsResult.ip}`);

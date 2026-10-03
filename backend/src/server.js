@@ -198,7 +198,7 @@ app.get('/api/health', handleHealthCheck);
 app.get('/health', handleHealthCheck);
 app.get('/api/health/smtp', async (req, res) => {
   const status = await emailService.verifyConnection();
-  const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '465', 10);
+  const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10);
   const user = process.env.SMTP_USER || process.env.EMAIL_USER || '';
   const host = process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com';
   const resolvedAddress = status.resolvedAddress || (await emailService.resolveIPv4(host)).ip;
@@ -214,6 +214,7 @@ app.get('/api/health/smtp', async (req, res) => {
     host,
     port,
     secure: port === 465,
+    requireTLS: port !== 465,
     resolvedAddress,
     family: 4,
     transportHost: resolvedAddress,
