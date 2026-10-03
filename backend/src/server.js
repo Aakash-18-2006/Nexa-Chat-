@@ -200,16 +200,28 @@ app.get('/api/health/smtp', async (req, res) => {
   const status = await emailService.verifyConnection();
   const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '465', 10);
   const user = process.env.SMTP_USER || process.env.EMAIL_USER || '';
+  const host = process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com';
+  const resolvedAddress = status.resolvedAddress || (await emailService.resolveIPv4(host)).ip;
+  const tcpCheck = await emailService.testTcpConnectivity(resolvedAddress, port, 5000);
+
   res.status(status.verified ? 200 : 503).json({
     status: status.verified ? 'ok' : 'pending_configuration',
     configured: status.configured,
     verified: status.verified,
-    host: process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com',
+    host,
     port,
     secure: port === 465,
-    resolvedAddress: status.resolvedAddress || null,
+    resolvedAddress,
     family: 4,
-    transportHost: status.resolvedAddress || null,
+    transportHost: resolvedAddress,
+    tcpConnectivity: {
+      success: tcpCheck.success,
+      targetIp: tcpCheck.targetIp,
+      targetPort: tcpCheck.targetPort,
+      elapsedMs: tcpCheck.elapsedMs,
+      error: tcpCheck.error,
+      code: tcpCheck.code
+    },
     user: user ? user : null,
     from: process.env.EMAIL_FROM || process.env.SMTP_FROM || (user ? `"NEXA Security" <${user}>` : null),
     error: status.error || null

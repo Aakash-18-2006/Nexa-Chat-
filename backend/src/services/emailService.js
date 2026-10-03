@@ -202,6 +202,56 @@ class EmailService {
     }
   }
 
+  /**
+   * Tests raw TCP socket connectivity to a target IPv4 address and port.
+   * @param {string} targetIp
+   * @param {number} targetPort
+   * @param {number} [timeoutMs=7000]
+   * @returns {Promise<{ success: boolean, targetIp: string, targetPort: number, elapsedMs: number, error: string | null, code: string | null }>}
+   */
+  async testTcpConnectivity(targetIp, targetPort, timeoutMs = 7000) {
+    const startTime = Date.now();
+    return new Promise((resolve) => {
+      let isSettled = false;
+      const socket = new net.Socket();
+
+      const finish = (success, error = null, code = null) => {
+        if (isSettled) return;
+        isSettled = true;
+        const elapsedMs = Date.now() - startTime;
+        socket.destroy();
+        resolve({
+          success,
+          targetIp,
+          targetPort,
+          elapsedMs,
+          error: error ? (error.message || String(error)) : null,
+          code: code || error?.code || null
+        });
+      };
+
+      socket.setTimeout(timeoutMs);
+
+      socket.on('connect', () => {
+        finish(true);
+      });
+
+      socket.on('timeout', () => {
+        finish(false, new Error(`TCP connection timed out after ${timeoutMs}ms`), 'ETIMEDOUT');
+      });
+
+      socket.on('error', (err) => {
+        finish(false, err, err?.code);
+      });
+
+      try {
+        socket.connect(targetPort, targetIp);
+      } catch (err) {
+        finish(false, err, err?.code);
+      }
+    });
+  }
+
   async verifyOnStartup() {
     try {
       console.log('\n========================================================================');
@@ -242,6 +292,21 @@ class EmailService {
       console.log(`Transport host: ${dnsResult.ip}`);
       console.log(`Transport port: ${port}`);
       console.log(`Account: ${user}`);
+
+      // Safe raw TCP connectivity probe to the resolved IPv4 address on port 465
+      console.log(`\n--- Raw TCP Diagnostic Check ---`);
+      console.log(`Testing raw TCP connectivity to ${dnsResult.ip}:${port} (timeout: 7000ms)...`);
+      const tcpResult = await this.testTcpConnectivity(dnsResult.ip, port, 7000);
+      console.log(`TCP target IPv4: ${tcpResult.targetIp}`);
+      console.log(`TCP target port: ${tcpResult.targetPort}`);
+      console.log(`TCP connection status: ${tcpResult.success ? 'SUCCESS (Connected)' : 'FAILED'}`);
+      console.log(`TCP elapsed time: ${tcpResult.elapsedMs}ms`);
+      if (!tcpResult.success) {
+        console.log(`TCP error code: ${tcpResult.code || 'UNKNOWN'}`);
+        console.log(`TCP error message: ${tcpResult.error || 'Connection failed'}`);
+      }
+      console.log(`--------------------------------\n`);
+
       console.log('Testing Gmail SMTP connection...');
 
       const res = await this.verifyConnection();
