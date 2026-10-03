@@ -20,6 +20,12 @@ services:
         sync: false
       - key: AI_API_KEY
         sync: false
+      - key: EMAIL_PROVIDER
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
 
   # Frontend Static Site
   - type: web
